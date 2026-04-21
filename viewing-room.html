@@ -40,9 +40,9 @@ const { useState, useEffect, useCallback } = React;
 
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const PROXY        = '/api/airtable';
-const TBL_VR       = 'tbl3fHryX8bPSYMyN';   // Viewing Rooms
+const TBL_VR       = 'tbl8EUvqiOLudNvjv';   // Viewing Rooms
 const TBL_ARTWORKS = 'tblK8xDtKmakHWt6k';   // Artworks
-const TBL_ARTISTS  = 'tbl8EUvqiOLudNvjv';   // Artists
+const TBL_ARTISTS  = 'tbl3fHryX8bPSYMyN';   // Artists
 const EMAIL        = 'diego@diez.gallery';
 
 // ── AIRTABLE FETCH ────────────────────────────────────────────────────────────
@@ -418,7 +418,7 @@ function App() {
         title: vr['Name'] || 'Viewing Room',
         dates: vr['Dates'] || '',
         booth: vr['Booth'] || '',
-        intro: vr['Intro'] || vr['Description'] || '',
+        intro: vr['Introduction'] || '',
       });
 
       // 2. Fetch artworks
