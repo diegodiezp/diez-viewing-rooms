@@ -5,296 +5,532 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Viewing Room</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Archivo:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
 <style>
-  :root {
-    --font-display: 'EB Garamond', Georgia, serif;
-    --font-body: 'Archivo', Helvetica, sans-serif;
-    --color-bg: #faf9f7;
-    --color-text: #1a1a1a;
-    --color-text-light: #6b6b6b;
-    --color-border: #e0ddd8;
-    --max-width: 1200px;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: var(--font-body); background: var(--color-bg);
-    color: var(--color-text); -webkit-font-smoothing: antialiased; line-height: 1.5;
-  }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: #FAFAF8;
+  color: #1C1C1A;
+  -webkit-font-smoothing: antialiased;
+}
+#root { height: 100%; }
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: #D4D2CC; border-radius: 2px; }
 
-  .vr-loading, .vr-error {
-    display: flex; flex-direction: column; align-items: center;
-    justify-content: center; min-height: 60vh; padding: 2rem; text-align: center;
-  }
-  .vr-loading p, .vr-error p {
-    font-size: 0.85rem; letter-spacing: 0.08em;
-    text-transform: uppercase; color: var(--color-text-light);
-  }
-  .vr-error p { color: #8b4049; }
-  .spinner {
-    width: 24px; height: 24px; border: 2px solid var(--color-border);
-    border-top-color: var(--color-text); border-radius: 50%;
-    animation: spin 0.8s linear infinite; margin-bottom: 1.5rem;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .vr-header {
-    max-width: var(--max-width); margin: 0 auto;
-    padding: 4rem 2rem 2rem; border-bottom: 1px solid var(--color-border);
-  }
-  .vr-header h1 {
-    font-family: var(--font-display); font-weight: 400;
-    font-size: clamp(1.8rem, 4vw, 2.8rem); line-height: 1.15;
-  }
-  .vr-header .vr-subtitle {
-    font-size: 0.8rem; letter-spacing: 0.08em;
-    text-transform: uppercase; color: var(--color-text-light); margin-top: 0.75rem;
-  }
-
-  .vr-gallery { max-width: var(--max-width); margin: 0 auto; padding: 3rem 2rem 6rem; }
-
-  .vr-artwork {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 3rem;
-    align-items: start; padding: 3rem 0; border-bottom: 1px solid var(--color-border);
-    opacity: 0; transform: translateY(20px); animation: fadeUp 0.6s ease forwards;
-  }
-  .vr-artwork:last-child { border-bottom: none; }
-  @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
-
-  .vr-artwork-image { position: relative; overflow: hidden; background: #eee; cursor: pointer; }
-  .vr-artwork-image img { width: 100%; height: auto; display: block; transition: transform 0.5s ease; }
-  .vr-artwork-image:hover img { transform: scale(1.02); }
-
-  .vr-artwork-info { padding-top: 0.25rem; }
-  .vr-artwork-artist {
-    font-size: 0.75rem; font-weight: 500; letter-spacing: 0.1em;
-    text-transform: uppercase; color: var(--color-text-light); margin-bottom: 0.5rem;
-  }
-  .vr-artwork-title {
-    font-family: var(--font-display); font-size: 1.4rem;
-    font-weight: 400; font-style: italic; line-height: 1.3; margin-bottom: 0.25rem;
-  }
-  .vr-artwork-year { font-size: 0.85rem; color: var(--color-text-light); margin-bottom: 1.25rem; }
-  .vr-artwork-details { font-size: 0.82rem; line-height: 1.7; white-space: pre-line; }
-  .vr-artwork-price {
-    font-size: 0.85rem; font-weight: 500; margin-top: 1.25rem;
-    padding-top: 1rem; border-top: 1px solid var(--color-border);
-  }
-  .vr-artwork-status {
-    display: inline-block; font-size: 0.7rem; letter-spacing: 0.08em;
-    text-transform: uppercase; padding: 0.2rem 0.6rem; margin-top: 0.75rem;
-    border: 1px solid var(--color-border); color: var(--color-text-light);
-  }
-  .vr-artwork-status.sold { border-color: #c4a882; color: #a08060; background: #fdf8f2; }
-  .vr-artwork-inquire {
-    display: inline-block; font-size: 0.75rem; letter-spacing: 0.1em;
-    text-transform: uppercase; margin-top: 1.25rem; padding: 0.5rem 1.5rem;
-    background: var(--color-text); color: var(--color-bg);
-    text-decoration: none; transition: opacity 0.2s;
-  }
-  .vr-artwork-inquire:hover { opacity: 0.8; }
-
-  .vr-footer {
-    max-width: var(--max-width); margin: 0 auto; padding: 2rem;
-    text-align: center; font-size: 0.75rem; letter-spacing: 0.06em; color: var(--color-text-light);
-  }
-  .vr-footer a { color: var(--color-text); text-decoration: none; }
-
-  .vr-lightbox {
-    position: fixed; inset: 0; z-index: 1000;
-    background: rgba(250, 249, 247, 0.97);
-    display: none; align-items: center; justify-content: center;
-    cursor: zoom-out; padding: 2rem;
-  }
-  .vr-lightbox.active { display: flex; }
-  .vr-lightbox img { max-width: 90vw; max-height: 90vh; object-fit: contain; }
-
-  @media (max-width: 768px) {
-    .vr-artwork { grid-template-columns: 1fr; gap: 1.5rem; padding: 2rem 0; }
-    .vr-header { padding: 3rem 1.25rem 1.5rem; }
-    .vr-gallery { padding: 2rem 1.25rem 4rem; }
-  }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
 </style>
-</head>
-<body>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
 
-<div id="vr-app">
-  <div class="vr-loading"><div class="spinner"></div><p>Loading viewing room</p></div>
-</div>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const PROXY        = '/api/airtable';
+const TBL_VR       = 'tbl3fHryX8bPSYMyN';   // Viewing Rooms
+const TBL_ARTWORKS = 'tblK8xDtKmakHWt6k';   // Artworks
+const TBL_ARTISTS  = 'tbl8EUvqiOLudNvjv';   // Artists
+const EMAIL        = 'diego@diez.gallery';
 
-<div class="vr-lightbox" id="vr-lightbox" onclick="closeLightbox()">
-  <img id="vr-lightbox-img" src="" alt="">
-</div>
+// ── AIRTABLE FETCH ────────────────────────────────────────────────────────────
+async function atFetch(tableId, qp = {}) {
+  const parts = [PROXY + '?path=' + encodeURIComponent(tableId)];
+  Object.entries(qp).forEach(([k, v]) => {
+    if (v != null) parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(String(v)));
+  });
+  const res = await fetch(parts.join('&'));
+  if (!res.ok) throw new Error('API error: ' + res.status);
+  return res.json();
+}
 
-<script>
-(function() {
+// ── SHARED UI ─────────────────────────────────────────────────────────────────
+function Dot({ available }) {
+  return (
+    <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11,
+      letterSpacing:'0.07em', textTransform:'uppercase',
+      color: available ? '#5A7A5A' : '#AAA' }}>
+      <span style={{ width:5, height:5, borderRadius:'50%', display:'inline-block',
+        background: available ? '#7AB07A' : '#C8C8C4' }}/>
+      {available ? 'Available' : 'Sold'}
+    </span>
+  );
+}
 
-  // ============================================================
-  // CONFIG
-  // ============================================================
-  const PROXY = '/api/airtable';
-  const TBL_VR       = 'tbl8EUvqiOLudNvjv';
-  const TBL_ARTWORKS = 'tblK8xDtKmakHWt6k';
-  const TBL_ARTISTS  = 'tbl3fHryX8bPSYMyN';
-  const EMAIL = 'diego@diez.gallery';
+function InquireBtn({ small, artist, title }) {
+  const [h, setH] = useState(false);
+  const subject = encodeURIComponent('Inquiry: ' + artist + ' — ' + title);
+  return (
+    <a href={`mailto:${EMAIL}?subject=${subject}`}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      onClick={e => e.stopPropagation()}
+      style={{
+        display: 'inline-block',
+        background: h ? '#1C1C1A' : 'transparent',
+        color: h ? '#FAFAF8' : '#1C1C1A',
+        border: '1px solid #1C1C1A',
+        padding: small ? '6px 14px' : '9px 22px',
+        fontSize: small ? 10 : 11,
+        letterSpacing: '0.12em', textTransform: 'uppercase',
+        fontFamily: "'DM Sans', sans-serif", fontWeight: 400,
+        cursor: 'pointer', borderRadius: 1, transition: 'all 0.18s',
+        textDecoration: 'none',
+      }}>Inquire</a>
+  );
+}
 
-  const app = document.getElementById('vr-app');
-  const params = new URLSearchParams(window.location.search);
-  const slug = params.get('vr');
-
-  if (!slug) { showError('No viewing room specified.'); return; }
-  loadViewingRoom(slug);
-
-  // ============================================================
-  // FETCH via existing Vercel proxy
-  // Proxy format: /api/airtable?path=TABLE_ID&filterByFormula=...
-  // ============================================================
-  async function atFetch(tableId, qp = {}) {
-    var parts = [PROXY + '?path=' + encodeURIComponent(tableId)];
-    Object.entries(qp).forEach(function(pair) {
-      if (pair[1] != null) parts.push(encodeURIComponent(pair[0]) + '=' + encodeURIComponent(String(pair[1])));
-    });
-    var url = parts.join('&');
-    var res = await fetch(url);
-    if (!res.ok) throw new Error('API error: ' + res.status);
-    return res.json();
+// ── ARTWORK IMAGE ─────────────────────────────────────────────────────────────
+function ArtImage({ src, title, style }) {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+  if (!src || error) {
+    return (
+      <div style={{ ...style, background: '#EDE9E3', display:'flex',
+        alignItems:'center', justifyContent:'center' }}>
+        <span style={{ fontSize:10, color:'#BBB', letterSpacing:'0.1em',
+          textTransform:'uppercase' }}>Image unavailable</span>
+      </div>
+    );
   }
+  return (
+    <div style={{ ...style, position:'relative', background:'#EDE9E3' }}>
+      {!loaded && (
+        <div style={{ position:'absolute', inset:0, background:'#EDE9E3' }}/>
+      )}
+      <img
+        src={src}
+        alt={title}
+        onLoad={() => setLoaded(true)}
+        onError={() => setError(true)}
+        style={{ width:'100%', height:'100%', objectFit:'contain', display:'block',
+          opacity: loaded ? 1 : 0, transition:'opacity 0.3s' }}
+      />
+    </div>
+  );
+}
 
-  // ============================================================
-  // LOAD
-  // ============================================================
-  async function loadViewingRoom(slug) {
+// ── LANDING VIEW ──────────────────────────────────────────────────────────────
+function Landing({ room, works, onSelect }) {
+  return (
+    <div style={{ minHeight:'100vh', background:'#FAFAF8' }}>
+      <header style={{ maxWidth:860, margin:'0 auto', padding:'56px 40px 36px' }}>
+        <div style={{ fontSize:10, letterSpacing:'0.18em', textTransform:'uppercase',
+          color:'#AAA', marginBottom:14 }}>
+          {room.gallery}{room.booth ? ` · ${room.booth}` : ''}{room.dates ? ` · ${room.dates}` : ''}
+        </div>
+        <h1 style={{ fontFamily:"'Cormorant Garamond', serif",
+          fontSize:46, fontWeight:400, letterSpacing:'-0.01em', lineHeight:1.05 }}>
+          {room.title}
+        </h1>
+        <div style={{ borderTop:'1px solid #E0DED8', marginTop:28 }}/>
+        {room.intro && (
+          <p style={{ fontSize:13, color:'#888', marginTop:16, lineHeight:1.65,
+            maxWidth:480 }}>{room.intro}</p>
+        )}
+      </header>
+
+      <main style={{ maxWidth:860, margin:'0 auto', padding:'0 40px 80px' }}>
+        {works.map((work, i) => (
+          <WorkRow key={work.id} work={work} index={i} onSelect={() => onSelect(i)} />
+        ))}
+      </main>
+
+      <footer style={{ maxWidth:860, margin:'0 auto', padding:'0 40px 40px',
+        borderTop:'1px solid #E8E6E0', marginTop:0 }}>
+        <p style={{ fontSize:11, color:'#CCC', letterSpacing:'0.06em',
+          textAlign:'center', paddingTop:24 }}>
+          <a href="https://diez.gallery" target="_blank"
+            style={{ color:'#999', textDecoration:'none' }}>diez.gallery</a>
+        </p>
+      </footer>
+    </div>
+  );
+}
+
+function WorkRow({ work, index, onSelect }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      onClick={onSelect}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display:'grid', gridTemplateColumns:'340px 1fr', gap:'48px',
+        padding:'40px 0', borderBottom:'1px solid #E8E6E0',
+        cursor:'pointer', transition:'opacity 0.2s',
+        animation: `fadeUp 0.4s ${index * 0.07}s both cubic-bezier(0.22,0.68,0,1)`,
+      }}
+    >
+      {/* Image */}
+      <div style={{ position:'relative', overflow:'hidden', borderRadius:1, background:'#EDE9E3' }}>
+        <div style={{ width:'100%', paddingTop:`${(1/work.ratio)*100}%`, position:'relative', overflow:'hidden' }}>
+          {work.imageUrl ? (
+            <img
+              src={work.imageUrl}
+              alt={work.title}
+              loading="lazy"
+              style={{
+                position:'absolute', inset:0, width:'100%', height:'100%',
+                objectFit:'contain', display:'block',
+                transform: hov ? 'scale(1.03)' : 'scale(1)',
+                transition:'transform 0.5s cubic-bezier(0.22,0.68,0,1)',
+              }}
+            />
+          ) : (
+            <div style={{ position:'absolute', inset:0, background:'#EDE9E3',
+              display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <span style={{ fontSize:9, color:'#CCC', letterSpacing:'0.1em', textTransform:'uppercase' }}>
+                No image
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Info */}
+      <div style={{ display:'flex', flexDirection:'column', justifyContent:'center', paddingTop:4 }}>
+        <div style={{ fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase',
+          color:'#AAA', marginBottom:12 }}>{work.artist}</div>
+        <h2 style={{ fontFamily:"'Cormorant Garamond', serif",
+          fontSize:32, fontWeight:400, fontStyle:'italic', lineHeight:1.15,
+          color: hov ? '#555' : '#1C1C1A', transition:'color 0.2s' }}>{work.title}</h2>
+        {work.year && <div style={{ fontSize:12, color:'#999', marginTop:14 }}>{work.year}</div>}
+        {work.info && <div style={{ fontSize:12, color:'#888', marginTop:3, whiteSpace:'pre-line' }}>{work.info}</div>}
+        <div style={{ marginTop:20 }}>
+          {work.price && (
+            <div style={{ fontFamily:"'Cormorant Garamond', serif", fontSize:22, marginBottom:8 }}>
+              {work.status === 'Sold' ? '' : `€ ${Number(work.price).toLocaleString('de-DE')}`}
+            </div>
+          )}
+          <Dot available={work.available}/>
+        </div>
+        {work.available && (
+          <div style={{ marginTop:16 }}>
+            <InquireBtn small={false} artist={work.artist} title={work.title}/>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── DETAIL SPLIT ──────────────────────────────────────────────────────────────
+function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
+  const work = works[workIdx];
+  const total = works.length;
+  const idx = workIdx;
+
+  return (
+    <div style={{ height:'100vh', display:'flex', flexDirection:'column', overflow:'hidden', background:'#FAFAF8' }}>
+      {/* Top bar */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+        padding:'14px 32px', borderBottom:'1px solid #E8E6E0', flexShrink:0 }}>
+        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', padding:0,
+          fontSize:11, letterSpacing:'0.12em', textTransform:'uppercase',
+          color:'#888', display:'flex', alignItems:'center', gap:8,
+          fontFamily:"'DM Sans', sans-serif", transition:'color 0.15s' }}
+          onMouseEnter={e => e.currentTarget.style.color = '#1C1C1A'}
+          onMouseLeave={e => e.currentTarget.style.color = '#888'}>
+          ← All works
+        </button>
+        <span style={{ fontSize:11, letterSpacing:'0.12em', textTransform:'uppercase', color:'#CCC' }}>
+          {String(idx+1).padStart(2,'0')} / {String(total).padStart(2,'0')}
+        </span>
+      </div>
+
+      {/* Split body */}
+      <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
+
+        {/* Image panel */}
+        <div style={{ flex:'0 0 60%', background:'#F0EDE7',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          padding:'40px', position:'relative' }}>
+          <div style={{ aspectRatio: work.ratio, maxWidth:'100%', maxHeight:'100%',
+            overflow:'hidden', boxShadow:'0 8px 48px rgba(0,0,0,0.10)',
+            animation:'fadeIn 0.35s ease both' }}>
+            {work.imageUrl ? (
+              <img src={work.imageUrl} alt={work.title}
+                style={{ width:'100%', height:'100%', objectFit:'contain', display:'block' }}/>
+            ) : (
+              <div style={{ width:'100%', height:'100%', background:'#EDE9E3',
+                display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <span style={{ fontSize:10, color:'#BBB', letterSpacing:'0.1em', textTransform:'uppercase' }}>
+                  No image
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Arrows */}
+          {[{fn:onPrev,dis:idx===0,lbl:'←',pos:'left'},{fn:onNext,dis:idx===total-1,lbl:'→',pos:'right'}].map(a => (
+            <button key={a.pos} onClick={a.fn} disabled={a.dis}
+              style={{
+                position:'absolute', [a.pos]:16, top:'50%', transform:'translateY(-50%)',
+                width:38, height:38, borderRadius:'50%', border:'none',
+                background:'rgba(255,255,255,0.85)',
+                color: a.dis ? '#CCC' : '#444',
+                cursor: a.dis ? 'default' : 'pointer',
+                fontSize:16, display:'flex', alignItems:'center', justifyContent:'center',
+                boxShadow:'0 2px 10px rgba(0,0,0,0.09)', transition:'all 0.15s', fontFamily:'serif',
+              }}>{a.lbl}</button>
+          ))}
+        </div>
+
+        {/* Info panel */}
+        <div style={{ flex:'0 0 40%', overflowY:'auto', borderLeft:'1px solid #E8E6E0',
+          display:'flex', flexDirection:'column', animation:'slideRight 0.35s ease both' }}>
+
+          <div style={{ padding:'32px 36px 0' }}>
+            <div style={{ fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase',
+              color:'#AAA', marginBottom:10 }}>{work.artist}</div>
+            <h1 style={{ fontFamily:"'Cormorant Garamond', serif",
+              fontSize:30, fontWeight:400, fontStyle:'italic', lineHeight:1.15 }}>{work.title}</h1>
+          </div>
+
+          <div style={{ margin:'24px 36px', borderTop:'1px solid #ECEAE6' }}/>
+
+          <div style={{ padding:'0 36px' }}>
+            {[
+              work.year ? ['Year', work.year] : null,
+              work.info ? ['Details', work.info] : null,
+            ].filter(Boolean).map(([k, v]) => (
+              <div key={k} style={{ display:'flex', justifyContent:'space-between',
+                padding:'9px 0', borderBottom:'1px solid #F2F0EA', gap:12 }}>
+                <span style={{ fontSize:10, letterSpacing:'0.08em', textTransform:'uppercase',
+                  color:'#BBB', flexShrink:0 }}>{k}</span>
+                <span style={{ fontSize:13, color:'#555', textAlign:'right',
+                  whiteSpace:'pre-line' }}>{v}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ flex:1 }}/>
+
+          <div style={{ padding:'20px 36px 28px', borderTop:'1px solid #ECEAE6',
+            display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div>
+              {work.price && work.status !== 'Sold' && (
+                <div style={{ fontFamily:"'Cormorant Garamond', serif", fontSize:22 }}>
+                  € {Number(work.price).toLocaleString('de-DE')}
+                </div>
+              )}
+              <div style={{ marginTop:5 }}><Dot available={work.available}/></div>
+            </div>
+            {work.available && <InquireBtn artist={work.artist} title={work.title}/>}
+          </div>
+
+          {/* Thumbnails */}
+          <div style={{ padding:'0 36px 28px', display:'flex', gap:8, flexWrap:'wrap' }}>
+            {works.map((w, i) => (
+              <div key={w.id} onClick={() => { if (i < idx) onPrev(); if (i > idx) onNext(); }}
+                style={{
+                  width:44, height:44, borderRadius:1, overflow:'hidden',
+                  border: i===idx ? '2px solid #1C1C1A' : '2px solid transparent',
+                  opacity: i===idx ? 1 : 0.45, transition:'all 0.2s', cursor:'pointer',
+                  background:'#EDE9E3',
+                }}>
+                {w.imageUrl ? (
+                  <img src={w.imageUrl} alt={w.title}
+                    style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
+                ) : (
+                  <div style={{ width:'100%', height:'100%', background:'#DDD' }}/>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── LOADING / ERROR ───────────────────────────────────────────────────────────
+function Loading() {
+  return (
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
+      justifyContent:'center', height:'100vh', gap:16 }}>
+      <div style={{ width:24, height:24, border:'2px solid #E0DDD8',
+        borderTopColor:'#1C1C1A', borderRadius:'50%',
+        animation:'spin 0.8s linear infinite' }}/>
+      <p style={{ fontSize:10, letterSpacing:'0.12em', textTransform:'uppercase',
+        color:'#AAA' }}>Loading</p>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+function ErrorView({ msg }) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center',
+      height:'100vh' }}>
+      <p style={{ fontSize:12, color:'#999', letterSpacing:'0.06em' }}>{msg}</p>
+    </div>
+  );
+}
+
+// ── APP ───────────────────────────────────────────────────────────────────────
+function App() {
+  const [status, setStatus] = useState('loading'); // loading | error | ready
+  const [errorMsg, setErrorMsg] = useState('');
+  const [room, setRoom] = useState(null);
+  const [works, setWorks] = useState([]);
+  const [screen, setScreen] = useState('landing'); // landing | detail
+  const [workIdx, setWorkIdx] = useState(0);
+
+  // Get slug from URL
+  const slug = new URLSearchParams(window.location.search).get('vr');
+
+  useEffect(() => {
+    if (!slug) { setStatus('error'); setErrorMsg('No viewing room specified.'); return; }
+    load(slug);
+  }, []);
+
+  async function load(slug) {
     try {
       // 1. Find viewing room by slug
       const vrData = await atFetch(TBL_VR, {
-        filterByFormula: '{URL slug} = "' + slug + '"',
-        maxRecords: 1
+        filterByFormula: `{URL slug} = "${slug}"`,
+        maxRecords: 1,
       });
-      if (!vrData.records || !vrData.records.length) {
-        showError('Viewing room not found.'); return;
+      if (!vrData.records?.length) {
+        setStatus('error'); setErrorMsg('Viewing room not found.'); return;
+      }
+      const vr = vrData.records[0].fields;
+      const artworkIds = vr['Artworks'] || [];
+      if (!artworkIds.length) {
+        setStatus('error'); setErrorMsg('This viewing room has no artworks yet.'); return;
       }
 
-      const vr = vrData.records[0].fields;
-      const ids = vr['Artworks'] || [];
-      if (!ids.length) { showError('This viewing room has no artworks yet.'); return; }
+      setRoom({
+        gallery: 'Diez Gallery',
+        title: vr['Name'] || 'Viewing Room',
+        dates: vr['Dates'] || '',
+        booth: vr['Booth'] || '',
+        intro: vr['Intro'] || vr['Description'] || '',
+      });
 
       // 2. Fetch artworks
-      const awFormula = 'OR(' + ids.map(function(id) { return 'RECORD_ID()="' + id + '"'; }).join(',') + ')';
-      const awData = await atFetch(TBL_ARTWORKS, { filterByFormula: awFormula, maxRecords: ids.length });
+      const awFormula = 'OR(' + artworkIds.map(id => `RECORD_ID()="${id}"`).join(',') + ')';
+      const awData = await atFetch(TBL_ARTWORKS, { filterByFormula: awFormula, maxRecords: artworkIds.length });
       const artworks = awData.records || [];
 
       // 3. Fetch artist names
-      var artistIds = {};
-      artworks.forEach(function(aw) {
-        (aw.fields['Artist name'] || []).forEach(function(id) { artistIds[id] = true; });
-      });
-      var artistMap = {};
-      var uniqueIds = Object.keys(artistIds);
+      const artistIds = {};
+      artworks.forEach(aw => (aw.fields['Artist name'] || []).forEach(id => artistIds[id] = true));
+      const artistMap = {};
+      const uniqueIds = Object.keys(artistIds);
       if (uniqueIds.length) {
-        var aFormula = 'OR(' + uniqueIds.map(function(id) { return 'RECORD_ID()="' + id + '"'; }).join(',') + ')';
-        var aData = await atFetch(TBL_ARTISTS, { filterByFormula: aFormula, maxRecords: uniqueIds.length });
-        (aData.records || []).forEach(function(a) { artistMap[a.id] = a.fields['Name'] || 'Unknown'; });
+        const aFormula = 'OR(' + uniqueIds.map(id => `RECORD_ID()="${id}"`).join(',') + ')';
+        const aData = await atFetch(TBL_ARTISTS, { filterByFormula: aFormula, maxRecords: uniqueIds.length });
+        (aData.records || []).forEach(a => { artistMap[a.id] = a.fields['Name'] || 'Unknown'; });
       }
 
       // 4. Sort by Artist Index
-      artworks.sort(function(a, b) { return (a.fields['Artist Index'] || 0) - (b.fields['Artist Index'] || 0); });
+      artworks.sort((a, b) => (a.fields['Artist Index'] || 0) - (b.fields['Artist Index'] || 0));
 
-      // 5. Render
-      render(vr, artworks, artistMap);
+      // 5. Map to work objects
+      const mapped = artworks.map((aw, i) => {
+        const f = aw.fields;
+        const artistLinks = f['Artist name'] || [];
+        const artistName = artistLinks.map(id => artistMap[id] || 'Unknown').join(', ');
+        const status = f['Status'] || '';
+        const available = status !== 'Sold' && status !== 'On hold';
+        const price = f['Price €'] || f['Price'] || null;
 
+        return {
+          id: aw.id,
+          title: f['Title'] || 'Untitled',
+          artist: artistName,
+          year: f['Year'] || '',
+          info: f['Info (Backup)'] || '',
+          imageUrl: f['Image URL'] || '',
+          status,
+          available,
+          price,
+          // Ratio: try to derive from dimensions, fallback to 4/3
+          ratio: (() => {
+            const info = f['Info (Backup)'] || '';
+            const m = info.match(/(\d+)\s*[×x]\s*(\d+)/);
+            if (m) return Number(m[1]) / Number(m[2]);
+            return 4/3;
+          })(),
+        };
+      });
+
+      document.title = (vr['Name'] || 'Viewing Room') + ' — Diez Gallery';
+      setWorks(mapped);
+      setStatus('ready');
     } catch (err) {
       console.error(err);
-      showError('Could not load the viewing room. Please try again later.');
+      setStatus('error');
+      setErrorMsg('Could not load the viewing room. Please try again.');
     }
   }
 
-  // ============================================================
-  // RENDER
-  // ============================================================
-  function render(vr, artworks, artistMap) {
-    var vrName = vr['Name'] || 'Viewing Room';
-    document.title = vrName + ' \u2014 Diez Gallery';
+  const openWork = useCallback((i) => {
+    setWorkIdx(i);
+    setScreen('detail');
+  }, []);
 
-    var html = '<header class="vr-header">' +
-      '<p class="vr-subtitle">Diez Gallery \u2014 Private Viewing Room</p>' +
-      '<h1>' + esc(vrName) + '</h1></header><div class="vr-gallery">';
-
-    artworks.forEach(function(aw, i) {
-      var f = aw.fields;
-      var title = f['Title'] || 'Untitled';
-      var year = f['Year'] || '';
-      var info = f['Info (Backup)'] || '';
-      var imageUrl = f['Image URL'] || '';
-      var status = f['Status'] || '';
-      var priceEur = f['Price \u20ac'];
-
-      var artistLinks = f['Artist name'] || [];
-      var artistNames = artistLinks.map(function(id) { return artistMap[id] || 'Unknown'; }).join(', ');
-
-      var priceDisplay = '';
-      if (status === 'Sold') priceDisplay = '';
-      else if (priceEur) priceDisplay = '\u20ac' + priceEur.toLocaleString('de-DE');
-      else priceDisplay = 'Price on request';
-
-      var statusHtml = '';
-      if (status === 'Sold') statusHtml = '<span class="vr-artwork-status sold">Sold</span>';
-      else if (status === 'On hold') statusHtml = '<span class="vr-artwork-status">On hold</span>';
-
-      var subject = encodeURIComponent('Inquiry: ' + artistNames + ' \u2014 ' + title);
-      var delay = Math.min(i * 0.08, 0.5);
-
-      html += '<div class="vr-artwork" style="animation-delay:' + delay + 's">' +
-        '<div class="vr-artwork-image" data-img="' + escAttr(imageUrl) + '">' +
-        (imageUrl
-          ? '<img src="' + escAttr(imageUrl) + '" alt="' + escAttr(title) + '" loading="lazy">'
-          : '<div style="padding:4rem;text-align:center;color:#999;">Image not available</div>') +
-        '</div><div class="vr-artwork-info">' +
-        '<div class="vr-artwork-artist">' + esc(artistNames) + '</div>' +
-        '<div class="vr-artwork-title">' + esc(title) + '</div>' +
-        '<div class="vr-artwork-year">' + year + '</div>' +
-        '<div class="vr-artwork-details">' + esc(info) + '</div>' +
-        (priceDisplay ? '<div class="vr-artwork-price">' + priceDisplay + '</div>' : '') +
-        statusHtml +
-        ((status === 'Available' || status === 'Offered')
-          ? '<a class="vr-artwork-inquire" href="mailto:' + EMAIL + '?subject=' + subject + '">Inquire</a>'
-          : '') +
-        '</div></div>';
+  const go = useCallback((dir) => {
+    setWorkIdx(prev => {
+      const next = prev + dir;
+      if (next < 0 || next >= works.length) return prev;
+      return next;
     });
+  }, [works.length]);
 
-    html += '</div><footer class="vr-footer"><a href="https://diez.gallery" target="_blank">diez.gallery</a></footer>';
-    app.innerHTML = html;
+  useEffect(() => {
+    const h = (e) => {
+      if (screen !== 'detail') return;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(1);
+      if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   go(-1);
+      if (e.key === 'Escape') setScreen('landing');
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [screen, go]);
 
-    // Lightbox delegation
-    document.querySelectorAll('.vr-artwork-image').forEach(function(el) {
-      el.addEventListener('click', function() {
-        var src = el.getAttribute('data-img');
-        if (src) openLightbox(src);
-      });
-    });
+  if (status === 'loading') return <Loading/>;
+  if (status === 'error')   return <ErrorView msg={errorMsg}/>;
+
+  if (screen === 'landing') {
+    return (
+      <div style={{ height:'100vh', overflowY:'auto' }}>
+        <Landing room={room} works={works} onSelect={openWork}/>
+      </div>
+    );
   }
 
-  // ============================================================
-  // HELPERS
-  // ============================================================
-  function showError(msg) { app.innerHTML = '<div class="vr-error"><p>' + msg + '</p></div>'; }
-  function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-  function escAttr(s) { return s.replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-})();
-
-function openLightbox(src) {
-  var lb = document.getElementById('vr-lightbox');
-  document.getElementById('vr-lightbox-img').src = src;
-  lb.classList.add('active');
-  document.body.style.overflow = 'hidden';
+  return (
+    <div style={{ height:'100vh', overflow:'hidden' }}>
+      <DetailSplit
+        works={works}
+        workIdx={workIdx}
+        onBack={() => setScreen('landing')}
+        onPrev={() => go(-1)}
+        onNext={() => go(1)}
+      />
+    </div>
+  );
 }
-function closeLightbox() {
-  var lb = document.getElementById('vr-lightbox');
-  lb.classList.remove('active');
-  document.getElementById('vr-lightbox-img').src = '';
-  document.body.style.overflow = '';
-}
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeLightbox(); });
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
+</head>
+<body>
+<div id="root"></div>
 </body>
 </html>
