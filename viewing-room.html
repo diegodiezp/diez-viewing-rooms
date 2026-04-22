@@ -538,8 +538,8 @@ function App() {
   const [workIdx, setWorkIdx] = useState(0);
 
   // Get slug from URL
-  const slug = new URLSearchParams(window.location.search).get('vr');
-
+const slug = new URLSearchParams(window.location.search).get('vr') || window.location.pathname.split('/').pop();
+  
   useEffect(() => {
     if (!slug) { setStatus('error'); setErrorMsg('No viewing room specified.'); return; }
     load(slug);
