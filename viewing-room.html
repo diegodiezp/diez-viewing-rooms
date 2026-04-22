@@ -43,7 +43,6 @@ body {
   body { font-size: 13px; }
 }
 
-/* ── TYPOGRAPHY CLASSES ────────────────────────────────────────────────────────── */
 .artist-name {
   font-size: 15px;
   letter-spacing: 0.14em;
@@ -77,7 +76,6 @@ body {
   color: #333333;
   text-align: right;
   white-space: pre-line;
-
 }
 
 .details-label {
@@ -143,10 +141,6 @@ body {
   color: #999999;
 }
 
-.border-line {
-  border-color: #000000;
-}
-
 .divider {
   border-top: 1px solid #000000;
 }
@@ -179,14 +173,12 @@ body {
 <script type="text/babel">
 const { useState, useEffect, useCallback } = React;
 
-// ── CONFIG ────────────────────────────────────────────────────────────────────
 const PROXY        = '/api/airtable';
-const TBL_VR       = 'tbl8EUvqiOLudNvjv';   // Viewing Rooms
-const TBL_ARTWORKS = 'tblK8xDtKmakHWt6k';   // Artworks
-const TBL_ARTISTS  = 'tbl3fHryX8bPSYMyN';   // Artists
+const TBL_VR       = 'tbl8EUvqiOLudNvjv';
+const TBL_ARTWORKS = 'tblK8xDtKmakHWt6k';
+const TBL_ARTISTS  = 'tbl3fHryX8bPSYMyN';
 const EMAIL        = 'diego@diez.gallery';
 
-// ── AIRTABLE FETCH ────────────────────────────────────────────────────────────
 async function atFetch(tableId, qp = {}) {
   const parts = [PROXY + '?path=' + encodeURIComponent(tableId)];
   Object.entries(qp).forEach(([k, v]) => {
@@ -197,7 +189,6 @@ async function atFetch(tableId, qp = {}) {
   return res.json();
 }
 
-// ── SHARED UI ─────────────────────────────────────────────────────────────────
 function Dot({ available }) {
   return (
     <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11,
@@ -233,40 +224,8 @@ function InquireBtn({ small, artist, title }) {
   );
 }
 
-// ── ARTWORK IMAGE ─────────────────────────────────────────────────────────────
-function ArtImage({ src, title, style }) {
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState(false);
-  if (!src || error) {
-    return (
-      <div style={{ ...style, background: '#EDE9E3', display:'flex',
-        alignItems:'center', justifyContent:'center' }}>
-        <span style={{ fontSize:10, color:'#BBB', letterSpacing:'0.1em',
-          textTransform:'uppercase' }}>Image unavailable</span>
-      </div>
-    );
-  }
-  return (
-    <div style={{ ...style, position:'relative', background:'#EDE9E3' }}>
-      {!loaded && (
-        <div style={{ position:'absolute', inset:0, background:'#EDE9E3' }}/>
-      )}
-      <img
-        src={src}
-        alt={title}
-        onLoad={() => setLoaded(true)}
-        onError={() => setError(true)}
-        style={{ width:'100%', height:'100%', objectFit:'contain', display:'block',
-          opacity: loaded ? 1 : 0, transition:'opacity 0.3s' }}
-      />
-    </div>
-  );
-}
-
-// ── LANDING VIEW ──────────────────────────────────────────────────────────────
 function Landing({ room, works, onSelect }) {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
@@ -288,13 +247,11 @@ function Landing({ room, works, onSelect }) {
           <p className="body-text" style={{ marginTop:16, maxWidth:480 }}>{room.intro}</p>
         )}
       </header>
-
       <main style={{ maxWidth:860, margin:'0 auto', padding: isMobile ? '0 20px 80px' : '0 40px 80px' }}>
         {works.map((work, i) => (
           <WorkRow key={work.id} work={work} index={i} onSelect={() => onSelect(i)} />
         ))}
       </main>
-
       <footer style={{ maxWidth:860, margin:'0 auto', padding: isMobile ? '0 20px 40px' : '0 40px 40px',
         borderTop:'1px solid #000000', marginTop:0 }}>
         <p style={{ fontSize:11, color:'#999999', letterSpacing:'0.06em',
@@ -310,7 +267,6 @@ function Landing({ room, works, onSelect }) {
 function WorkRow({ work, index, onSelect }) {
   const [hov, setHov] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
@@ -318,54 +274,29 @@ function WorkRow({ work, index, onSelect }) {
   }, []);
 
   return (
-    <div
-      onClick={onSelect}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
+    <div onClick={onSelect} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{
-        display:'grid', 
-        gridTemplateColumns: isMobile ? '1fr' : '340px 1fr', 
-        gap: isMobile ? '16px' : '48px',
-        padding:'12px 0', 
-        borderBottom:'1px solid #000000',
-        cursor:'pointer', 
-        transition:'opacity 0.2s',
+        display:'grid', gridTemplateColumns: isMobile ? '1fr' : '340px 1fr',
+        gap: isMobile ? '16px' : '48px', padding:'12px 0', borderBottom:'1px solid #000000',
+        cursor:'pointer', transition:'opacity 0.2s',
         animation: `fadeUp 0.4s ${index * 0.07}s both cubic-bezier(0.22,0.68,0,1)`,
-      }}
-    >
-      {/* Image */}
+      }}>
+      {/* Image - solo imagen principal */}
       <div style={{ position:'relative', overflow:'hidden', borderRadius:1 }}>
         <div style={{ width:'100%', paddingTop:`${(1/work.ratio)*100}%`, position:'relative', overflow:'hidden' }}>
-         {work.imageUrl ? (
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:16, maxWidth:'100%', maxHeight:'100%', overflow:'auto', padding:'20px' }}>
-              <img src={work.imageUrl} alt={work.title}
-                style={{ 
-                  maxWidth:'100%',
-                  width:'auto', height:'auto',
-                  objectFit:'contain', display:'block',
-                  animation:'fadeIn 0.35s ease both'
-                }}/>
-              {work.detailUrl && (
-                <img src={work.detailUrl} alt={work.title + ' detail'}
-                  style={{ 
-                    maxWidth:'100%',
-                    width:'auto', height:'auto',
-                    objectFit:'contain', display:'block',
-                    animation:'fadeIn 0.35s 0.2s ease both'
-                  }}/>
-              )}
-            </div>
+          {work.imageUrl ? (
+            <img src={work.imageUrl} alt={work.title} loading="lazy"
+              style={{ position:'absolute', inset:0, width:'100%', height:'100%',
+                objectFit:'contain', display:'block',
+                transform: hov ? 'scale(1.03)' : 'scale(1)',
+                transition:'transform 0.5s cubic-bezier(0.22,0.68,0,1)' }} />
           ) : (
-            <div style={{ position:'absolute', inset:0,
-              display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <span style={{ fontSize:9, color:'#999999', letterSpacing:'0.1em', textTransform:'uppercase' }}>
-                No image
-              </span>
+            <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <span style={{ fontSize:9, color:'#999999', letterSpacing:'0.1em', textTransform:'uppercase' }}>No image</span>
             </div>
           )}
         </div>
       </div>
-
       {/* Info */}
       <div style={{ display:'flex', flexDirection:'column', justifyContent:'center', paddingTop:4 }}>
         <div className="artist-name">{work.artist}</div>
@@ -390,13 +321,11 @@ function WorkRow({ work, index, onSelect }) {
   );
 }
 
-// ── DETAIL SPLIT ──────────────────────────────────────────────────────────────
 function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
   const work = works[workIdx];
   const total = works.length;
   const idx = workIdx;
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
@@ -405,68 +334,54 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
 
   return (
     <div style={{ height:'100vh', display:'flex', flexDirection:'column', overflow:'hidden', background:'#FFFFFF' }}>
-      {/* Top bar */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
         padding: isMobile ? '10px 16px' : '14px 32px', borderBottom:'1px solid #000000', flexShrink:0 }}>
-        <button onClick={onBack} className="button-back">
-          ← All works
-        </button>
-        <span className="counter-text">
-          {String(idx+1).padStart(2,'0')} / {String(total).padStart(2,'0')}
-        </span>
+        <button onClick={onBack} className="button-back">← All works</button>
+        <span className="counter-text">{String(idx+1).padStart(2,'0')} / {String(total).padStart(2,'0')}</span>
       </div>
-
-      {/* Split body */}
       <div style={{ flex:1, display:'flex', flexDirection: isMobile ? 'column' : 'row', overflow:'hidden' }}>
-
-        {/* Image panel */}
+        {/* Image panel - con detail */}
         <div style={{ flex: isMobile ? '1' : '0 0 60%', background:'#FFFFFF',
           display:'flex', alignItems:'center', justifyContent:'center',
           padding:'0', position:'relative', overflow:'auto' }}>
           {work.imageUrl ? (
-            <img src={work.imageUrl} alt={work.title}
-              style={{ 
-                maxWidth:'100%', maxHeight:'100%',
-                width:'auto', height:'auto',
-                objectFit:'contain', display:'block',
-                animation:'fadeIn 0.35s ease both'
-              }}/>
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:16,
+              maxWidth:'100%', overflow:'auto', padding:'20px' }}>
+              <img src={work.imageUrl} alt={work.title}
+                style={{ maxWidth:'100%', width:'auto', height:'auto',
+                  objectFit:'contain', display:'block', animation:'fadeIn 0.35s ease both' }}/>
+              {work.detailUrl && (
+                <img src={work.detailUrl} alt={work.title + ' detail'}
+                  style={{ maxWidth:'100%', width:'auto', height:'auto',
+                    objectFit:'contain', display:'block', animation:'fadeIn 0.35s 0.2s ease both' }}/>
+              )}
+            </div>
           ) : (
             <div style={{ width:'100%', height:'100%', background:'#FFFFFF',
               display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <span style={{ fontSize:10, color:'#BBB', letterSpacing:'0.1em', textTransform:'uppercase' }}>
-                No image
-              </span>
+              <span style={{ fontSize:10, color:'#BBB', letterSpacing:'0.1em', textTransform:'uppercase' }}>No image</span>
             </div>
           )}
-
-          {/* Arrows */}
           {!isMobile && [{fn:onPrev,dis:idx===0,lbl:'←',pos:'left'},{fn:onNext,dis:idx===total-1,lbl:'→',pos:'right'}].map(a => (
             <button key={a.pos} onClick={a.fn} disabled={a.dis}
-              style={{
-                position:'absolute', [a.pos]:16, top:'50%', transform:'translateY(-50%)',
+              style={{ position:'absolute', [a.pos]:16, top:'50%', transform:'translateY(-50%)',
                 width:38, height:38, borderRadius:'50%', border:'none',
-                background:'rgba(255,255,255,0.85)',
-                color: a.dis ? '#CCC' : '#444',
-                cursor: a.dis ? 'default' : 'pointer',
-                fontSize:16, display:'flex', alignItems:'center', justifyContent:'center',
-                boxShadow:'0 2px 10px rgba(0,0,0,0.09)', transition:'all 0.15s', fontFamily:'serif',
-              }}>{a.lbl}</button>
+                background:'rgba(255,255,255,0.85)', color: a.dis ? '#CCC' : '#444',
+                cursor: a.dis ? 'default' : 'pointer', fontSize:16,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                boxShadow:'0 2px 10px rgba(0,0,0,0.09)', transition:'all 0.15s', fontFamily:'serif' }}>{a.lbl}</button>
           ))}
         </div>
-
         {/* Info panel */}
-        <div style={{ flex: isMobile ? '0 0 auto' : '0 0 40%', overflowY:'auto', borderLeft: isMobile ? 'none' : '1px solid #000000', borderTop: isMobile ? '1px solid #000000' : 'none',
+        <div style={{ flex: isMobile ? '0 0 auto' : '0 0 40%', overflowY:'auto',
+          borderLeft: isMobile ? 'none' : '1px solid #000000', borderTop: isMobile ? '1px solid #000000' : 'none',
           display:'flex', flexDirection:'column', animation:'slideRight 0.35s ease both',
           maxHeight: isMobile ? '50vh' : 'auto' }}>
-
           <div style={{ padding: isMobile ? '16px 16px 0' : '32px 36px 0' }}>
             <div className="artist-name">{work.artist}</div>
             <h1 className="work-title">{work.title}</h1>
           </div>
-
           <div className="divider" style={{ margin: isMobile ? '16px 16px' : '24px 36px' }}/>
-
           <div style={{ padding: isMobile ? '0 16px' : '0 36px' }}>
             {[
               work.year ? ['Year', work.year] : null,
@@ -478,24 +393,20 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
               </div>
             ))}
           </div>
-
           <div style={{ flex:1 }}/>
-
           <div className="divider" style={{ padding: isMobile ? '16px 16px' : '20px 36px 28px', margin:0,
-            display:'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent:'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? 12 : 0 }}>
+            display:'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent:'space-between',
+            alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? 12 : 0 }}>
             <div>
               {work.price && work.status !== 'Sold' && (
-                <div className="price">
-                  € {Number(work.price).toLocaleString('de-DE')}
-                </div>
+                <div className="price">€ {Number(work.price).toLocaleString('de-DE')}</div>
               )}
               <div style={{ marginTop:5 }}><Dot available={work.available}/></div>
             </div>
             {work.available && <InquireBtn artist={work.artist} title={work.title}/>}
           </div>
-
-          {/* Thumbnails */}
-          <div style={{ padding: isMobile ? '0 16px 16px' : '0 36px 28px', display:'flex', gap:8, flexWrap:'wrap', overflowX: isMobile ? 'auto' : 'visible' }}>
+          <div style={{ padding: isMobile ? '0 16px 16px' : '0 36px 28px', display:'flex', gap:8, flexWrap:'wrap',
+            overflowX: isMobile ? 'auto' : 'visible' }}>
             {works.map((w, i) => (
               <div key={w.id} onClick={() => { if (i < idx) onPrev(); if (i > idx) onNext(); }}
                 className={`thumbnail ${i===idx ? 'active' : ''}`}>
@@ -514,41 +425,36 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
   );
 }
 
-// ── LOADING / ERROR ───────────────────────────────────────────────────────────
 function Loading() {
   return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
       justifyContent:'center', height:'100vh', gap:16 }}>
       <div style={{ width:24, height:24, border:'2px solid #E0DDD8',
-        borderTopColor:'#1C1C1A', borderRadius:'50%',
-        animation:'spin 0.8s linear infinite' }}/>
-      <p style={{ fontSize:10, letterSpacing:'0.12em', textTransform:'uppercase',
-        color:'#AAA' }}>Loading</p>
+        borderTopColor:'#1C1C1A', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
+      <p style={{ fontSize:10, letterSpacing:'0.12em', textTransform:'uppercase', color:'#AAA' }}>Loading</p>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
+
 function ErrorView({ msg }) {
   return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center',
-      height:'100vh' }}>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh' }}>
       <p style={{ fontSize:12, color:'#999', letterSpacing:'0.06em' }}>{msg}</p>
     </div>
   );
 }
 
-// ── APP ───────────────────────────────────────────────────────────────────────
 function App() {
-  const [status, setStatus] = useState('loading'); // loading | error | ready
+  const [status, setStatus] = useState('loading');
   const [errorMsg, setErrorMsg] = useState('');
   const [room, setRoom] = useState(null);
   const [works, setWorks] = useState([]);
-  const [screen, setScreen] = useState('landing'); // landing | detail
+  const [screen, setScreen] = useState('landing');
   const [workIdx, setWorkIdx] = useState(0);
 
-  // Get slug from URL
-const slug = new URLSearchParams(window.location.search).get('vr') || window.location.pathname.split('/').pop();
-  
+  const slug = new URLSearchParams(window.location.search).get('vr') || window.location.pathname.split('/').pop();
+
   useEffect(() => {
     if (!slug) { setStatus('error'); setErrorMsg('No viewing room specified.'); return; }
     load(slug);
@@ -556,34 +462,21 @@ const slug = new URLSearchParams(window.location.search).get('vr') || window.loc
 
   async function load(slug) {
     try {
-      // 1. Find viewing room by slug
-      const vrData = await atFetch(TBL_VR, {
-        filterByFormula: `{URL slug} = "${slug}"`,
-        maxRecords: 1,
-      });
-      if (!vrData.records?.length) {
-        setStatus('error'); setErrorMsg('Viewing room not found.'); return;
-      }
+      const vrData = await atFetch(TBL_VR, { filterByFormula: `{URL slug} = "${slug}"`, maxRecords: 1 });
+      if (!vrData.records?.length) { setStatus('error'); setErrorMsg('Viewing room not found.'); return; }
       const vr = vrData.records[0].fields;
       const artworkIds = vr['Artworks'] || [];
-      if (!artworkIds.length) {
-        setStatus('error'); setErrorMsg('This viewing room has no artworks yet.'); return;
-      }
+      if (!artworkIds.length) { setStatus('error'); setErrorMsg('This viewing room has no artworks yet.'); return; }
 
       setRoom({
-        gallery: 'Diez Gallery',
-        title: vr['Name'] || 'Viewing Room',
-        dates: vr['Dates'] || '',
-        booth: vr['Booth'] || '',
-        intro: vr['Introduction'] || '',
+        gallery: 'Diez Gallery', title: vr['Name'] || 'Viewing Room',
+        dates: vr['Dates'] || '', booth: vr['Booth'] || '', intro: vr['Introduction'] || '',
       });
 
-      // 2. Fetch artworks
       const awFormula = 'OR(' + artworkIds.map(id => `RECORD_ID()="${id}"`).join(',') + ')';
       const awData = await atFetch(TBL_ARTWORKS, { filterByFormula: awFormula, maxRecords: artworkIds.length });
       const artworks = awData.records || [];
 
-      // 3. Fetch artist names
       const artistIds = {};
       artworks.forEach(aw => (aw.fields['Artist name'] || []).forEach(id => artistIds[id] = true));
       const artistMap = {};
@@ -594,30 +487,21 @@ const slug = new URLSearchParams(window.location.search).get('vr') || window.loc
         (aData.records || []).forEach(a => { artistMap[a.id] = a.fields['Name'] || 'Unknown'; });
       }
 
-      // 4. Sort by Artist Index
       artworks.sort((a, b) => (a.fields['Artist Index'] || 0) - (b.fields['Artist Index'] || 0));
 
-      // 5. Map to work objects
-      const mapped = artworks.map((aw, i) => {
+      const mapped = artworks.map((aw) => {
         const f = aw.fields;
         const artistLinks = f['Artist name'] || [];
         const artistName = artistLinks.map(id => artistMap[id] || 'Unknown').join(', ');
         const status = f['Status'] || '';
         const available = status !== 'Sold' && status !== 'On hold';
         const price = f['Price €'] || f['Price'] || null;
-
         return {
-          id: aw.id,
-          title: f['Title'] || 'Untitled',
-          artist: artistName,
-          year: f['Year'] || '',
-          info: f['Info (Backup)'] || '',
-imageUrl: f['Image URL'] || '/api/image?id=' + aw.id,
+          id: aw.id, title: f['Title'] || 'Untitled', artist: artistName,
+          year: f['Year'] || '', info: f['Info (Backup)'] || '',
+          imageUrl: f['Image URL'] || '/api/image?id=' + aw.id,
           detailUrl: f['Details'] ? '/api/image?id=' + aw.id + '&field=Details' : null,
-          status,
-          available,
-          price,
-          // Ratio: try to derive from dimensions, fallback to 4/3
+          status, available, price,
           ratio: (() => {
             const info = f['Info (Backup)'] || '';
             const m = info.match(/(\d+)\s*[×x]\s*(\d+)/);
@@ -637,17 +521,9 @@ imageUrl: f['Image URL'] || '/api/image?id=' + aw.id,
     }
   }
 
-  const openWork = useCallback((i) => {
-    setWorkIdx(i);
-    setScreen('detail');
-  }, []);
-
+  const openWork = useCallback((i) => { setWorkIdx(i); setScreen('detail'); }, []);
   const go = useCallback((dir) => {
-    setWorkIdx(prev => {
-      const next = prev + dir;
-      if (next < 0 || next >= works.length) return prev;
-      return next;
-    });
+    setWorkIdx(prev => { const next = prev + dir; if (next < 0 || next >= works.length) return prev; return next; });
   }, [works.length]);
 
   useEffect(() => {
@@ -663,24 +539,13 @@ imageUrl: f['Image URL'] || '/api/image?id=' + aw.id,
 
   if (status === 'loading') return <Loading/>;
   if (status === 'error')   return <ErrorView msg={errorMsg}/>;
-
   if (screen === 'landing') {
-    return (
-      <div style={{ height:'100vh', overflowY:'auto' }}>
-        <Landing room={room} works={works} onSelect={openWork}/>
-      </div>
-    );
+    return (<div style={{ height:'100vh', overflowY:'auto' }}><Landing room={room} works={works} onSelect={openWork}/></div>);
   }
-
   return (
     <div style={{ height:'100vh', overflow:'hidden' }}>
-      <DetailSplit
-        works={works}
-        workIdx={workIdx}
-        onBack={() => setScreen('landing')}
-        onPrev={() => go(-1)}
-        onNext={() => go(1)}
-      />
+      <DetailSplit works={works} workIdx={workIdx}
+        onBack={() => setScreen('landing')} onPrev={() => go(-1)} onNext={() => go(1)} />
     </div>
   );
 }
