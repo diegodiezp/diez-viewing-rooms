@@ -290,7 +290,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
       <div style={{ flex:1, display:'flex', flexDirection: isMobile ? 'column' : 'row', overflow:'hidden' }}>
 
         {/* Image panel */}
-        <div style={{ flex: isMobile ? '0 0 50%' : '0 0 60%', background:'#FFFFFF',
+        <div style={{ flex: isMobile ? '1' : '0 0 60%', background:'#FFFFFF',
           display:'flex', alignItems:'center', justifyContent:'center',
           padding:'0', position:'relative', overflow:'auto' }}>
           {work.imageUrl ? (
@@ -326,8 +326,9 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
         </div>
 
         {/* Info panel */}
-        <div style={{ flex: isMobile ? '0 0 50%' : '0 0 40%', overflowY:'auto', borderLeft: isMobile ? 'none' : '1px solid #E8E6E0', borderTop: isMobile ? '1px solid #E8E6E0' : 'none',
-          display:'flex', flexDirection:'column', animation:'slideRight 0.35s ease both' }}>
+        <div style={{ flex: isMobile ? '0 0 auto' : '0 0 40%', overflowY:'auto', borderLeft: isMobile ? 'none' : '1px solid #E8E6E0', borderTop: isMobile ? '1px solid #E8E6E0' : 'none',
+          display:'flex', flexDirection:'column', animation:'slideRight 0.35s ease both',
+          maxHeight: isMobile ? '50vh' : 'auto' }}>
 
           <div style={{ padding: isMobile ? '16px 16px 0' : '32px 36px 0' }}>
             <div style={{ fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase',
