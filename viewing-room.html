@@ -34,6 +34,14 @@ body {
   from { opacity: 0; transform: translateX(-16px); }
   to   { opacity: 1; transform: translateX(0); }
 }
+
+@media (max-width: 768px) {
+  body { font-size: 14px; }
+}
+
+@media (max-width: 480px) {
+  body { font-size: 13px; }
+}
 </style>
 <script type="text/babel">
 const { useState, useEffect, useCallback } = React;
@@ -124,15 +132,23 @@ function ArtImage({ src, title, style }) {
 
 // ── LANDING VIEW ──────────────────────────────────────────────────────────────
 function Landing({ room, works, onSelect }) {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div style={{ minHeight:'100vh', background:'#FAFAF8' }}>
-      <header style={{ maxWidth:860, margin:'0 auto', padding:'56px 40px 36px' }}>
+      <header style={{ maxWidth:860, margin:'0 auto', padding: isMobile ? '32px 20px 24px' : '56px 40px 36px' }}>
         <div style={{ fontSize:10, letterSpacing:'0.18em', textTransform:'uppercase',
           color:'#AAA', marginBottom:14 }}>
           {room.gallery}{room.booth ? ` · ${room.booth}` : ''}{room.dates ? ` · ${room.dates}` : ''}
         </div>
         <h1 style={{ fontFamily:"'Cormorant Garamond', serif",
-          fontSize:46, fontWeight:400, letterSpacing:'-0.01em', lineHeight:1.05 }}>
+          fontSize: isMobile ? 28 : 46, fontWeight:400, letterSpacing:'-0.01em', lineHeight:1.05 }}>
           {room.title}
         </h1>
         <div style={{ borderTop:'1px solid #E0DED8', marginTop:28 }}/>
@@ -142,13 +158,13 @@ function Landing({ room, works, onSelect }) {
         )}
       </header>
 
-      <main style={{ maxWidth:860, margin:'0 auto', padding:'0 40px 80px' }}>
+      <main style={{ maxWidth:860, margin:'0 auto', padding: isMobile ? '0 20px 80px' : '0 40px 80px' }}>
         {works.map((work, i) => (
           <WorkRow key={work.id} work={work} index={i} onSelect={() => onSelect(i)} />
         ))}
       </main>
 
-      <footer style={{ maxWidth:860, margin:'0 auto', padding:'0 40px 40px',
+      <footer style={{ maxWidth:860, margin:'0 auto', padding: isMobile ? '0 20px 40px' : '0 40px 40px',
         borderTop:'1px solid #E8E6E0', marginTop:0 }}>
         <p style={{ fontSize:11, color:'#CCC', letterSpacing:'0.06em',
           textAlign:'center', paddingTop:24 }}>
@@ -162,15 +178,27 @@ function Landing({ room, works, onSelect }) {
 
 function WorkRow({ work, index, onSelect }) {
   const [hov, setHov] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div
       onClick={onSelect}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        display:'grid', gridTemplateColumns:'340px 1fr', gap:'48px',
-        padding:'12px 0', borderBottom:'1px solid #E8E6E0',
-        cursor:'pointer', transition:'opacity 0.2s',
+        display:'grid', 
+        gridTemplateColumns: isMobile ? '1fr' : '340px 1fr', 
+        gap: isMobile ? '16px' : '48px',
+        padding:'12px 0', 
+        borderBottom:'1px solid #E8E6E0',
+        cursor:'pointer', 
+        transition:'opacity 0.2s',
         animation: `fadeUp 0.4s ${index * 0.07}s both cubic-bezier(0.22,0.68,0,1)`,
       }}
     >
@@ -232,32 +260,39 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
   const work = works[workIdx];
   const total = works.length;
   const idx = workIdx;
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
     <div style={{ height:'100vh', display:'flex', flexDirection:'column', overflow:'hidden', background:'#FAFAF8' }}>
       {/* Top bar */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
-        padding:'14px 32px', borderBottom:'1px solid #E8E6E0', flexShrink:0 }}>
+        padding: isMobile ? '10px 16px' : '14px 32px', borderBottom:'1px solid #E8E6E0', flexShrink:0 }}>
         <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', padding:0,
-          fontSize:11, letterSpacing:'0.12em', textTransform:'uppercase',
+          fontSize: isMobile ? 10 : 11, letterSpacing:'0.12em', textTransform:'uppercase',
           color:'#888', display:'flex', alignItems:'center', gap:8,
           fontFamily:"'DM Sans', sans-serif", transition:'color 0.15s' }}
           onMouseEnter={e => e.currentTarget.style.color = '#1C1C1A'}
           onMouseLeave={e => e.currentTarget.style.color = '#888'}>
           ← All works
         </button>
-        <span style={{ fontSize:11, letterSpacing:'0.12em', textTransform:'uppercase', color:'#CCC' }}>
+        <span style={{ fontSize: isMobile ? 9 : 11, letterSpacing:'0.12em', textTransform:'uppercase', color:'#CCC' }}>
           {String(idx+1).padStart(2,'0')} / {String(total).padStart(2,'0')}
         </span>
       </div>
 
       {/* Split body */}
-      <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
+      <div style={{ flex:1, display:'flex', flexDirection: isMobile ? 'column' : 'row', overflow:'hidden' }}>
 
         {/* Image panel */}
-        <div style={{ flex:'0 0 60%', background:'#FFFFFF',
+        <div style={{ flex: isMobile ? '0 0 50%' : '0 0 60%', background:'#FFFFFF',
           display:'flex', alignItems:'center', justifyContent:'center',
-          padding:'0', position:'relative', overflow:'hidden' }}>
+          padding:'0', position:'relative', overflow:'auto' }}>
           {work.imageUrl ? (
             <img src={work.imageUrl} alt={work.title}
               style={{ 
@@ -276,7 +311,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
           )}
 
           {/* Arrows */}
-          {[{fn:onPrev,dis:idx===0,lbl:'←',pos:'left'},{fn:onNext,dis:idx===total-1,lbl:'→',pos:'right'}].map(a => (
+          {!isMobile && [{fn:onPrev,dis:idx===0,lbl:'←',pos:'left'},{fn:onNext,dis:idx===total-1,lbl:'→',pos:'right'}].map(a => (
             <button key={a.pos} onClick={a.fn} disabled={a.dis}
               style={{
                 position:'absolute', [a.pos]:16, top:'50%', transform:'translateY(-50%)',
@@ -291,19 +326,19 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
         </div>
 
         {/* Info panel */}
-        <div style={{ flex:'0 0 40%', overflowY:'auto', borderLeft:'1px solid #E8E6E0',
+        <div style={{ flex: isMobile ? '0 0 50%' : '0 0 40%', overflowY:'auto', borderLeft: isMobile ? 'none' : '1px solid #E8E6E0', borderTop: isMobile ? '1px solid #E8E6E0' : 'none',
           display:'flex', flexDirection:'column', animation:'slideRight 0.35s ease both' }}>
 
-          <div style={{ padding:'32px 36px 0' }}>
+          <div style={{ padding: isMobile ? '16px 16px 0' : '32px 36px 0' }}>
             <div style={{ fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase',
               color:'#AAA', marginBottom:10 }}>{work.artist}</div>
             <h1 style={{ fontFamily:"'Cormorant Garamond', serif",
-              fontSize:30, fontWeight:400, fontStyle:'italic', lineHeight:1.15 }}>{work.title}</h1>
+              fontSize: isMobile ? 20 : 30, fontWeight:400, fontStyle:'italic', lineHeight:1.15 }}>{work.title}</h1>
           </div>
 
-          <div style={{ margin:'24px 36px', borderTop:'1px solid #ECEAE6' }}/>
+          <div style={{ margin: isMobile ? '16px 16px' : '24px 36px', borderTop:'1px solid #ECEAE6' }}/>
 
-          <div style={{ padding:'0 36px' }}>
+          <div style={{ padding: isMobile ? '0 16px' : '0 36px' }}>
             {[
               work.year ? ['Year', work.year] : null,
               work.info ? ['Details', work.info] : null,
@@ -320,8 +355,8 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
 
           <div style={{ flex:1 }}/>
 
-          <div style={{ padding:'20px 36px 28px', borderTop:'1px solid #ECEAE6',
-            display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <div style={{ padding: isMobile ? '16px 16px' : '20px 36px 28px', borderTop:'1px solid #ECEAE6',
+            display:'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent:'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? 12 : 0 }}>
             <div>
               {work.price && work.status !== 'Sold' && (
                 <div style={{ fontFamily:"'Cormorant Garamond', serif", fontSize:22 }}>
@@ -334,14 +369,14 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
           </div>
 
           {/* Thumbnails */}
-          <div style={{ padding:'0 36px 28px', display:'flex', gap:8, flexWrap:'wrap' }}>
+          <div style={{ padding: isMobile ? '0 16px 16px' : '0 36px 28px', display:'flex', gap:8, flexWrap:'wrap', overflowX: isMobile ? 'auto' : 'visible' }}>
             {works.map((w, i) => (
               <div key={w.id} onClick={() => { if (i < idx) onPrev(); if (i > idx) onNext(); }}
                 style={{
                   width:44, height:44, borderRadius:1, overflow:'hidden',
                   border: i===idx ? '2px solid #1C1C1A' : '2px solid transparent',
                   opacity: i===idx ? 1 : 0.45, transition:'all 0.2s', cursor:'pointer',
-                  background:'#EDE9E3',
+                  flexShrink: 0,
                 }}>
                 {w.imageUrl ? (
                   <img src={w.imageUrl} alt={w.title}
