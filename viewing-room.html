@@ -255,9 +255,9 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
       <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
 
         {/* Image panel */}
-        <div style={{ flex:'0 0 60%', background:'#F0EDE7',
+        <div style={{ flex:'0 0 60%', background:'#FFFFFF',
           display:'flex', alignItems:'center', justifyContent:'center',
-          padding:'40px', position:'relative', overflow:'hidden' }}>
+          padding:'0', position:'relative', overflow:'hidden' }}>
           {work.imageUrl ? (
             <img src={work.imageUrl} alt={work.title}
               style={{ 
@@ -267,7 +267,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
                 animation:'fadeIn 0.35s ease both'
               }}/>
           ) : (
-            <div style={{ width:'100%', height:'100%', background:'#EDE9E3',
+            <div style={{ width:'100%', height:'100%', background:'#FFFFFF',
               display:'flex', alignItems:'center', justifyContent:'center' }}>
               <span style={{ fontSize:10, color:'#BBB', letterSpacing:'0.1em', textTransform:'uppercase' }}>
                 No image
