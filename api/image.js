@@ -9,10 +9,10 @@ module.exports = async function handler(req, res) {
   if (!token) return res.status(500).json({ error: "AIRTABLE_PAT not configured" });
 
   const recordId = req.query.id;
+  const field = req.query.field || "Image";
   if (!recordId) return res.status(400).json({ error: "Missing 'id' parameter" });
 
   try {
-    // Obtener el registro de Airtable
     const atRes = await fetch(
       "https://api.airtable.com/v0/" + BASE_ID + "/" + TABLE_ID + "/" + recordId,
       {
@@ -25,19 +25,17 @@ module.exports = async function handler(req, res) {
     if (!atRes.ok) return res.status(atRes.status).json({ error: "Record not found" });
 
     const data = await atRes.json();
-    const attachments = data.fields.Image;
+    const attachments = data.fields[field];
 
     if (!attachments || attachments.length === 0) {
       return res.status(404).json({ error: "No image" });
     }
 
-    // Descargar la imagen desde Airtable
     const imageUrl = attachments[0].url;
     const imageRes = await fetch(imageUrl);
 
     if (!imageRes.ok) return res.status(500).json({ error: "Failed to fetch image" });
 
-    // Servir la imagen
     const contentType = imageRes.headers.get("content-type");
     const buffer = Buffer.from(await imageRes.arrayBuffer());
 
