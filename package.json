@@ -1,8 +1,5 @@
 {
   "name": "diez-viewing-rooms",
   "version": "1.0.0",
-  "private": true,
-  "dependencies": {
-    "node-fetch": "^2.6.7"
-  }
+  "private": true
 }
