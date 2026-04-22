@@ -42,7 +42,7 @@ module.exports = async function handler(req, res) {
     const buffer = Buffer.from(await imageRes.arrayBuffer());
 
     res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Cache-Control", "public, max-age=86400");
     return res.status(200).send(buffer);
   } catch (err) {
     return res.status(500).json({ error: err.message });
