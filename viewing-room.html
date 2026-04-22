@@ -257,22 +257,23 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
         {/* Image panel */}
         <div style={{ flex:'0 0 60%', background:'#F0EDE7',
           display:'flex', alignItems:'center', justifyContent:'center',
-          padding:'40px', position:'relative' }}>
-          <div style={{ aspectRatio: work.ratio, maxWidth:'100%', maxHeight:'100%',
-            overflow:'hidden', boxShadow:'0 8px 48px rgba(0,0,0,0.10)',
-            animation:'fadeIn 0.35s ease both' }}>
-            {work.imageUrl ? (
-              <img src={work.imageUrl} alt={work.title}
-                style={{ width:'100%', height:'100%', objectFit:'contain', display:'block' }}/>
-            ) : (
-              <div style={{ width:'100%', height:'100%', background:'#EDE9E3',
-                display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <span style={{ fontSize:10, color:'#BBB', letterSpacing:'0.1em', textTransform:'uppercase' }}>
-                  No image
-                </span>
-              </div>
-            )}
-          </div>
+          padding:'40px', position:'relative', overflow:'hidden' }}>
+          {work.imageUrl ? (
+            <img src={work.imageUrl} alt={work.title}
+              style={{ 
+                maxWidth:'100%', maxHeight:'100%',
+                width:'auto', height:'auto',
+                objectFit:'contain', display:'block',
+                animation:'fadeIn 0.35s ease both'
+              }}/>
+          ) : (
+            <div style={{ width:'100%', height:'100%', background:'#EDE9E3',
+              display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <span style={{ fontSize:10, color:'#BBB', letterSpacing:'0.1em', textTransform:'uppercase' }}>
+                No image
+              </span>
+            </div>
+          )}
 
           {/* Arrows */}
           {[{fn:onPrev,dis:idx===0,lbl:'←',pos:'left'},{fn:onNext,dis:idx===total-1,lbl:'→',pos:'right'}].map(a => (
