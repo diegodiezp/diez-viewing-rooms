@@ -1,20 +1,13 @@
 import fetch from 'node-fetch';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
-
-const s3Client = new S3Client({
-  region: 'auto',
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-  },
-});
 
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
 const AIRTABLE_TABLE_ID = process.env.AIRTABLE_TABLE_ID;
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT;
 const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME;
+const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
+const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
+const R2_API_TOKEN = process.env.R2_API_TOKEN;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -44,20 +37,41 @@ export default async function handler(req, res) {
     const ext = fileName.split('.').pop();
     const r2Key = `artworks/${uuidv4()}.${ext}`;
 
-    // Subir a R2
-    const uploadCommand = new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
-      Key: r2Key,
-      Body: imageBuffer,
-      ContentType: imageResponse.headers.get('content-type'),
+    // Subir a R2 usando presigned URL
+    const presignedUrlResponse = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${R2_ACCOUNT_ID}/r2/buckets/${R2_BUCKET_NAME}/objects/${r2Key}/put-url`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${R2_API_TOKEN}`,
+        },
+      }
+    );
+
+    if (!presignedUrlResponse.ok) {
+      throw new Error(`Failed to get presigned URL: ${presignedUrlResponse.statusText}`);
+    }
+
+    const { result } = await presignedUrlResponse.json();
+    const presignedUrl = result.uploadURL;
+
+    // Subir archivo a R2 usando presigned URL
+    const uploadResponse = await fetch(presignedUrl, {
+      method: 'PUT',
+      body: imageBuffer,
+      headers: {
+        'Content-Type': imageResponse.headers.get('content-type'),
+      },
     });
 
-    await s3Client.send(uploadCommand);
+    if (!uploadResponse.ok) {
+      throw new Error(`Failed to upload to R2: ${uploadResponse.statusText}`);
+    }
 
     // Generar URL pública de R2
-    const r2Url = `https://${R2_BUCKET_NAME}.${process.env.R2_ACCOUNT_ID}.r2.dev/${r2Key}`;
+    const r2Url = `https://${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.dev/${r2Key}`;
 
-    // Actualizar registro en Airtable con la URL de R2
+    // Actualizar registro en Airtable
     const updateResponse = await fetch(
       `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_ID}/${recordId}`,
       {
