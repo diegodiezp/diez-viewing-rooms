@@ -355,7 +355,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
         <div style={{ flex: isMobile ? '0 0 auto' : '0 0 40%', overflowY:'auto',
           borderLeft: isMobile ? 'none' : '1px solid #000000', borderTop: isMobile ? '1px solid #000000' : 'none',
           display:'flex', flexDirection:'column', animation:'slideRight 0.35s ease both',
-          maxHeight: isMobile ? '50vh' : 'auto' }}>
+          maxHeight: isMobile ? 'none' : 'auto' }}>
           <div style={{ padding: isMobile ? '16px 16px 0' : '32px 36px 0' }}>
             <div className="artist-name">{work.artist}</div>
             <h1 className="work-title">{work.title}</h1>
