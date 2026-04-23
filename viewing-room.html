@@ -222,7 +222,7 @@ function Landing({ room, works, onSelect }) {
         </h1>
         <div className="divider" style={{ marginTop:28 }}/>
         {room.intro && (
-          <p className="body-text" style={{ marginTop:16, maxWidth:480 }}>{room.intro}</p>
+          <p className="body-text" style={{ marginTop:16, maxWidth:480, whiteSpace:'pre-line' }}>{room.intro}</p>
         )}
         {room.pdf && (
           <a href={room.pdf.url} target="_blank" download={room.pdf.filename}
