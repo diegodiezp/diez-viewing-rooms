@@ -224,6 +224,16 @@ function Landing({ room, works, onSelect }) {
         {room.intro && (
           <p className="body-text" style={{ marginTop:16, maxWidth:480 }}>{room.intro}</p>
         )}
+        {room.pdf && (
+          <a href={room.pdf.url} target="_blank" download={room.pdf.filename}
+            style={{ display:'inline-block', marginTop:12, fontSize:12,
+              letterSpacing:'0.08em', textTransform:'uppercase', color:'#666666',
+              textDecoration:'none', transition:'color 0.15s' }}
+            onMouseEnter={e => e.target.style.color='#000000'}
+            onMouseLeave={e => e.target.style.color='#666666'}>
+            ↓ {room.pdf.filename || 'Download PDF'}
+          </a>
+        )}
       </header>
       <main style={{ maxWidth:1200, margin:'0', padding: isMobile ? '0 20px 80px' : '0 48px 80px' }}>
         {works.map((work, i) => (
@@ -459,12 +469,18 @@ function App() {
       const vrData = await atFetch(TBL_VR, { filterByFormula: `{URL slug} = "${slug}"`, maxRecords: 1 });
       if (!vrData.records?.length) { setStatus('error'); setErrorMsg('Viewing room not found.'); return; }
       const vr = vrData.records[0].fields;
+      const vrRecordId = vrData.records[0].id;
       const artworkIds = vr['Artworks'] || [];
       if (!artworkIds.length) { setStatus('error'); setErrorMsg('This viewing room has no artworks yet.'); return; }
 
+      const hasAttachment = vr['Attachments'] && vr['Attachments'].length > 0;
       setRoom({
         gallery: 'Diez Gallery', title: vr['Name'] || 'Viewing Room',
         dates: vr['Dates'] || '', booth: vr['Booth'] || '', intro: vr['Introduction'] || '',
+        pdf: hasAttachment ? {
+          url: '/api/attachment?id=' + vrRecordId,
+          filename: vr['Attachments'][0].filename || 'Document.pdf',
+        } : null,
       });
 
       const awFormula = 'OR(' + artworkIds.map(id => `RECORD_ID()="${id}"`).join(',') + ')';
