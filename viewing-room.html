@@ -209,7 +209,7 @@ function Landing({ room, works, onSelect }) {
 
   return (
     <div style={{ minHeight:'100vh', background:'#FFFFFF' }}>
-      <header style={{ maxWidth:860, margin:'0 auto', padding: isMobile ? '32px 20px 24px' : '56px 40px 36px' }}>
+      <header style={{ maxWidth:1200, margin:'0', padding: isMobile ? '32px 20px 24px' : '56px 48px 36px' }}>
         <div className="subtitle-gray">
           {room.gallery}{room.booth ? ` · ${room.booth}` : ''}{room.dates ? ` · ${room.dates}` : ''}
         </div>
@@ -222,15 +222,15 @@ function Landing({ room, works, onSelect }) {
           <p className="body-text" style={{ marginTop:16, maxWidth:480 }}>{room.intro}</p>
         )}
       </header>
-      <main style={{ maxWidth:860, margin:'0 auto', padding: isMobile ? '0 20px 80px' : '0 40px 80px' }}>
+      <main style={{ maxWidth:1200, margin:'0', padding: isMobile ? '0 20px 80px' : '0 48px 80px' }}>
         {works.map((work, i) => (
           <WorkRow key={work.id} work={work} index={i} onSelect={() => onSelect(i)} />
         ))}
       </main>
-      <footer style={{ maxWidth:860, margin:'0 auto', padding: isMobile ? '0 20px 40px' : '0 40px 40px',
+      <footer style={{ maxWidth:1200, margin:'0', padding: isMobile ? '0 20px 40px' : '0 48px 40px',
         borderTop:'1px solid #000000', marginTop:0 }}>
         <p style={{ fontSize:11, color:'#999999', letterSpacing:'0.06em',
-          textAlign:'center', paddingTop:24 }}>
+          textAlign:'left', paddingTop:24 }}>
           <a href="https://diez.gallery" target="_blank"
             style={{ color:'#666666', textDecoration:'none' }}>diez.gallery</a>
         </p>
@@ -252,7 +252,7 @@ function WorkRow({ work, index, onSelect }) {
   return (
     <div onClick={onSelect} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{
-        display:'grid', gridTemplateColumns: isMobile ? '1fr' : '340px 1fr',
+        display:'grid', gridTemplateColumns: isMobile ? '1fr' : '400px 1fr',
         gap: isMobile ? '16px' : '48px', padding:'12px 0', borderBottom:'1px solid #000000',
         cursor:'pointer', transition:'opacity 0.2s',
         animation: `fadeUp 0.4s ${index * 0.07}s both cubic-bezier(0.22,0.68,0,1)`,
