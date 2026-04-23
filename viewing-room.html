@@ -227,13 +227,17 @@ function Landing({ room, works, onSelect }) {
           <WorkRow key={work.id} work={work} index={i} onSelect={() => onSelect(i)} />
         ))}
       </main>
-      <footer style={{ maxWidth:1200, margin:'0', padding: isMobile ? '0 20px 40px' : '0 48px 40px',
-        borderTop:'1px solid #000000', marginTop:0 }}>
-        <p style={{ fontSize:11, color:'#999999', letterSpacing:'0.06em',
-          textAlign:'left', paddingTop:24 }}>
-          <a href="https://diez.gallery" target="_blank"
-            style={{ color:'#666666', textDecoration:'none' }}>diez.gallery</a>
-        </p>
+      <footer style={{ padding: isMobile ? '40px 20px' : '48px 48px',
+        display:'flex', flexWrap:'wrap', justifyContent:'space-between', alignItems:'center',
+        gap: isMobile ? '12px' : '24px',
+        fontSize:13, color:'#333333' }}>
+        <a href="https://airtable.com/appkTmFvjmDLOQS4p/pageOJZwubCWxkwCs/form" target="_blank"
+          style={{ color:'#333333', textDecoration:'none' }}>Subscribe to our newsletter!</a>
+        <a href="mailto:diego@diez.gallery" style={{ color:'#333333', textDecoration:'none' }}>diego@diez.gallery</a>
+        <a href="tel:+31633261845" style={{ color:'#333333', textDecoration:'none' }}>+31 633261845</a>
+        <a href="https://instagram.com/diez.gallery" target="_blank"
+          style={{ color:'#333333', textDecoration:'none' }}>Instagram</a>
+        <span>Open Fri - Sun from 12-5pm or by appointment</span>
       </footer>
     </div>
   );
