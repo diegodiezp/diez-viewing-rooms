@@ -322,7 +322,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
   const total = works.length;
   const idx = workIdx;
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [showDetail, setShowDetail] = useState(false);
+  const [detailIndex, setDetailIndex] = useState(-1); // -1 = main image, 0+ = detail images
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -330,8 +330,20 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Reset detail view when changing artwork
-  useEffect(() => { setShowDetail(false); }, [workIdx]);
+  // Reset to main image when changing artwork
+  useEffect(() => { setDetailIndex(-1); }, [workIdx]);
+
+  const hasDetails = work.detailUrls && work.detailUrls.length > 0;
+  const totalImages = hasDetails ? 1 + work.detailUrls.length : 1;
+  const currentSrc = detailIndex === -1 ? work.imageUrl : work.detailUrls[detailIndex];
+  const currentLabel = detailIndex === -1
+    ? (hasDetails ? 'Click to see detail' : null)
+    : (detailIndex < work.detailUrls.length - 1 ? 'Click for next detail' : 'Click to see full view');
+
+  function cycleImage() {
+    if (!hasDetails) return;
+    setDetailIndex(prev => prev < work.detailUrls.length - 1 ? prev + 1 : -1);
+  }
 
   return (
     <div style={{ height:'100vh', display:'flex', flexDirection:'column', overflow:'hidden', background:'#FFFFFF' }}>
@@ -350,15 +362,16 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
           {work.imageUrl ? (
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
               width:'100%', height:'100%', overflow:'auto', padding:'20px',
-              cursor: work.detailUrl ? 'pointer' : 'default' }}
-              onClick={() => { if (work.detailUrl) setShowDetail(!showDetail); }}>
-              <img src={showDetail && work.detailUrl ? work.detailUrl : work.imageUrl}
-                alt={work.title + (showDetail ? ' detail' : '')}
+              cursor: hasDetails ? 'pointer' : 'default' }}
+              onClick={cycleImage}>
+              <img src={currentSrc}
+                key={currentSrc}
+                alt={work.title + (detailIndex >= 0 ? ' detail ' + (detailIndex + 1) : '')}
                 style={{ maxWidth:'100%', maxHeight:'100%', width:'auto', height:'auto',
                   objectFit:'contain', display:'block', animation:'fadeIn 0.35s ease both' }}/>
-              {work.detailUrl && (
+              {currentLabel && (
                 <div style={{ marginTop:8, fontSize:9, letterSpacing:'0.1em', textTransform:'uppercase', color:'#999999' }}>
-                  {showDetail ? 'Click to see full view' : 'Click to see detail'}
+                  {currentLabel}{totalImages > 2 ? ` (${detailIndex + 2}/${totalImages})` : ''}
                 </div>
               )}
             </div>
@@ -514,7 +527,7 @@ function App() {
           id: aw.id, title: f['Title'] || 'Untitled', artist: artistName,
           year: f['Year'] || '', info: f['Info (Backup)'] || '',
           imageUrl: f['Image URL'] || '/api/image?id=' + aw.id,
-          detailUrl: f['Details'] ? '/api/image?id=' + aw.id + '&field=Details' : null,
+          detailUrls: f['Details'] ? Array.from({length: f['Details'].length}, (_, i) => '/api/image?id=' + aw.id + '&field=Details&index=' + i) : [],
           status, available, price,
           ratio: (() => {
             const info = f['Info (Backup)'] || '';
@@ -531,10 +544,10 @@ function App() {
 
       // Preload detail images in background
       mapped.forEach(w => {
-        if (w.detailUrl) {
+        w.detailUrls.forEach(url => {
           const img = new Image();
-          img.src = w.detailUrl;
-        }
+          img.src = url;
+        });
       });
     } catch (err) {
       console.error(err);
