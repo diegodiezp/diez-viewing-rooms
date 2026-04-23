@@ -30,7 +30,7 @@ module.exports = async function handler(req, res) {
       return res.status(404).json({ error: "No attachment" });
     }
 
-    const file = attachments[0];
+    const file = attachments[parseInt(req.query.index || "0", 10)] || attachments[0];
     const fileRes = await fetch(file.url);
 
     if (!fileRes.ok) return res.status(500).json({ error: "Failed to fetch file" });
