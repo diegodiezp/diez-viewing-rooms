@@ -528,6 +528,14 @@ function App() {
       document.title = (vr['Name'] || 'Viewing Room') + ' — Diez Gallery';
       setWorks(mapped);
       setStatus('ready');
+
+      // Preload detail images in background
+      mapped.forEach(w => {
+        if (w.detailUrl) {
+          const img = new Image();
+          img.src = w.detailUrl;
+        }
+      });
     } catch (err) {
       console.error(err);
       setStatus('error');
