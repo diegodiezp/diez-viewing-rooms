@@ -4,8 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Viewing Room</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+@font-face { font-family: 'Replica'; src: url('/files/Replica_Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Replica'; src: url('/files/Replica_Italic.woff2') format('woff2'); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Replica'; src: url('/files/Replica_Bold.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Replica'; src: url('/files/Replica_BoldItalic.woff2') format('woff2'); font-weight: 700; font-style: italic; font-display: swap; }
+</style>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
@@ -13,7 +17,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Replica', sans-serif;
   background: #FFFFFF;
   color: #000000;
   -webkit-font-smoothing: antialiased;
@@ -43,18 +47,18 @@ body {
 }
 
 .artist-name {
-  font-size: 15px;
-  letter-spacing: 0.14em;
+  font-size: 12px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #666666;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 .work-title {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 20px;
-  font-weight: 500;
+  font-family: 'Replica', sans-serif;
+  font-size: 18px;
+  font-weight: 400;
   font-style: italic;
-  line-height: 1.15;
+  line-height: 1.2;
   color: #000000;
 }
 .work-title:hover { color: #333333; }
@@ -77,10 +81,10 @@ body {
   white-space: pre-line;
 }
 .price {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 22px;
+  font-family: 'Replica', sans-serif;
+  font-size: 18px;
   color: #000000;
-  font-weight: 500;
+  font-weight: 400;
 }
 .subtitle-gray {
   font-size: 10px;
@@ -106,7 +110,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Replica', sans-serif;
   transition: color 0.15s;
 }
 .button-back:hover { color: #000000; }
@@ -187,7 +191,7 @@ function InquireBtn({ small, artist, title }) {
         padding: small ? '6px 14px' : '9px 22px',
         fontSize: small ? 10 : 11,
         letterSpacing: '0.12em', textTransform: 'uppercase',
-        fontFamily: "'DM Sans', sans-serif", fontWeight: 400,
+        fontFamily: "'Replica', sans-serif", fontWeight: 400,
         cursor: 'pointer', borderRadius: 1, transition: 'all 0.18s',
         textDecoration: 'none',
       }}>Inquire</a>
@@ -209,8 +213,8 @@ function Landing({ room, works, onSelect }) {
         <div className="subtitle-gray">
           {room.gallery}{room.booth ? ` · ${room.booth}` : ''}{room.dates ? ` · ${room.dates}` : ''}
         </div>
-        <h1 style={{ fontFamily:"'Cormorant Garamond', serif",
-          fontSize: isMobile ? 28 : 46, fontWeight:400, letterSpacing:'-0.01em', lineHeight:1.05 }}>
+        <h1 style={{ fontFamily:"'Replica', sans-serif",
+          fontSize: isMobile ? 24 : 32, fontWeight:400, letterSpacing:'0', lineHeight:1.15 }}>
           {room.title}
         </h1>
         <div className="divider" style={{ marginTop:28 }}/>
