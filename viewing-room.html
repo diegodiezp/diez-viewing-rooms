@@ -210,8 +210,11 @@ function Landing({ room, works, onSelect }) {
   return (
     <div style={{ minHeight:'100vh', background:'#FFFFFF' }}>
       <header style={{ maxWidth:1200, margin:'0', padding: isMobile ? '32px 20px 24px' : '56px 48px 36px' }}>
+        <a href="https://diez.gallery" target="_blank" style={{ display:'inline-block', marginBottom:20 }}>
+          <img src="/files/logo.png" alt="diez" style={{ height: isMobile ? 18 : 22, width:'auto' }}/>
+        </a>
         <div className="subtitle-gray">
-          {room.gallery}{room.booth ? ` · ${room.booth}` : ''}{room.dates ? ` · ${room.dates}` : ''}
+          {room.booth ? `${room.booth}` : ''}{room.booth && room.dates ? ' · ' : ''}{room.dates ? `${room.dates}` : ''}
         </div>
         <h1 style={{ fontFamily:"'Replica', sans-serif",
           fontSize: isMobile ? 24 : 32, fontWeight:400, letterSpacing:'0', lineHeight:1.15 }}>
