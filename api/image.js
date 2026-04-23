@@ -10,6 +10,7 @@ module.exports = async function handler(req, res) {
 
   const recordId = req.query.id;
   const field = req.query.field || "Image";
+  const index = parseInt(req.query.index || "0", 10);
   if (!recordId) return res.status(400).json({ error: "Missing 'id' parameter" });
 
   try {
@@ -31,8 +32,8 @@ module.exports = async function handler(req, res) {
       return res.status(404).json({ error: "No image" });
     }
 
-    const imageUrl = attachments[0].url;
-    const imageRes = await fetch(imageUrl);
+    const file = attachments[index] || attachments[0];
+    const imageRes = await fetch(file.url);
 
     if (!imageRes.ok) return res.status(500).json({ error: "Failed to fetch image" });
 
