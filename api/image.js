@@ -11,6 +11,8 @@ module.exports = async function handler(req, res) {
   const recordId = req.query.id;
   const field = req.query.field || "Image";
   const index = parseInt(req.query.index || "0", 10);
+  // size: small (36px) | large (512px) | full (3000px) | original. Default: large.
+  const size = (req.query.size || "large").toLowerCase();
   if (!recordId) return res.status(400).json({ error: "Missing 'id' parameter" });
 
   try {
@@ -33,7 +35,14 @@ module.exports = async function handler(req, res) {
     }
 
     const file = attachments[index] || attachments[0];
-    const imageRes = await fetch(file.url);
+
+    // Pick the right URL based on size, with fallback to original.
+    let targetUrl = file.url;
+    if (size !== "original" && file.thumbnails && file.thumbnails[size]) {
+      targetUrl = file.thumbnails[size].url;
+    }
+
+    const imageRes = await fetch(targetUrl);
 
     if (!imageRes.ok) return res.status(500).json({ error: "Failed to fetch image" });
 
@@ -41,7 +50,13 @@ module.exports = async function handler(req, res) {
     const buffer = Buffer.from(await imageRes.arrayBuffer());
 
     res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    // Aggressive caching: 1h fresh on Vercel CDN, 24h stale-while-revalidate,
+    // 7d in browser. Saves API calls dramatically when multiple visitors hit
+    // the same viewing room.
+    res.setHeader(
+      "Cache-Control",
+      "public, max-age=604800, s-maxage=3600, stale-while-revalidate=86400"
+    );
     return res.status(200).send(buffer);
   } catch (err) {
     return res.status(500).json({ error: err.message });
