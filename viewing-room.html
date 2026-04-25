@@ -427,7 +427,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
             </div>
             {work.available && <InquireBtn artist={work.artist} title={work.title}/>}
           </div>
-          <div style={{ padding: isMobile ? '0 16px 16px' : '0 36px 28px', display:'flex', gap:8, flexWrap:'wrap',
+          <div style={{ padding: isMobile ? '0 16px 32px' : '0 36px 28px', display:'flex', gap:8, flexWrap:'wrap',
             overflowX: isMobile ? 'auto' : 'visible' }}>
             {works.map((w, i) => (
               <div key={w.id} onClick={() => { if (i < idx) onPrev(); if (i > idx) onNext(); }}
@@ -532,7 +532,6 @@ function App() {
           imageUrl: f['Image URL'] || '/api/image?id=' + aw.id,
           detailUrls: f['Details'] ? Array.from({length: f['Details'].length}, (_, i) => '/api/image?id=' + aw.id + '&field=Details&index=' + i) : [],
           status, available, price,
-       
         };
       });
 
