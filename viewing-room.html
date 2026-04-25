@@ -532,12 +532,7 @@ function App() {
           imageUrl: f['Image URL'] || '/api/image?id=' + aw.id,
           detailUrls: f['Details'] ? Array.from({length: f['Details'].length}, (_, i) => '/api/image?id=' + aw.id + '&field=Details&index=' + i) : [],
           status, available, price,
-          ratio: (() => {
-            const info = f['Info (Backup)'] || '';
-            const m = info.match(/(\d+)\s*[×x]\s*(\d+)/);
-            if (m) return Number(m[1]) / Number(m[2]);
-            return 4/3;
-          })(),
+       
         };
       });
 
