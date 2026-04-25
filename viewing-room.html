@@ -352,7 +352,12 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
     <div style={{ height:'100vh', display:'flex', flexDirection:'column', overflow:'hidden', background:'#FFFFFF' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
         padding: isMobile ? '10px 16px' : '14px 32px', borderBottom:'1px solid #000000', flexShrink:0 }}>
-        <button onClick={onBack} className="button-back">← All works</button>
+        <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 16 : 28 }}>
+          <a href="https://diez.gallery" target="_blank" style={{ display:'inline-flex', alignItems:'center' }}>
+            <img src="/files/logo.png" alt="diez" style={{ height: isMobile ? 18 : 22, width:'auto', display:'block' }}/>
+          </a>
+          <button onClick={onBack} className="button-back">← All works</button>
+        </div>
         <span className="counter-text">{String(idx+1).padStart(2,'0')} / {String(total).padStart(2,'0')}</span>
       </div>
       <div style={{ flex:1, display:'flex', flexDirection: isMobile ? 'column' : 'row',
