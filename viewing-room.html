@@ -336,6 +336,14 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // ESC key disables zoom mode
+  useEffect(() => {
+    if (!zoomActive) return;
+    const onKey = (e) => { if (e.key === 'Escape') setZoomActive(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [zoomActive]);
+
   // Reset to main image when changing artwork
   useEffect(() => { setDetailIndex(-1); setZoomActive(false); }, [workIdx]);
 
@@ -375,7 +383,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
               width:'100%', height:'100%', overflow:'auto', padding:'20px',
               cursor: zoomActive ? 'none' : (hasDetails ? 'pointer' : 'default'),
               position:'relative' }}
-              onClick={zoomActive ? null : cycleImage}
+              onClick={zoomActive ? () => setZoomActive(false) : cycleImage}
               onMouseMove={(e) => {
                 if (!zoomActive || !imgRef.current) return;
                 const r = imgRef.current.getBoundingClientRect();
@@ -414,7 +422,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
               )}
               {!isMobile && (
                 <button onClick={(e) => { e.stopPropagation(); setZoomActive(z => !z); }}
-                  title={zoomActive ? 'Disable zoom' : 'Enable zoom'}
+                  title={zoomActive ? 'Disable zoom (ESC)' : 'Enable zoom'}
                   style={{ position:'absolute', bottom:16, right:16,
                     width:34, height:34, borderRadius:'50%', border:'1px solid rgba(0,0,0,0.2)',
                     background: zoomActive ? '#000000' : 'rgba(255,255,255,0.9)',
@@ -424,6 +432,14 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
                     boxShadow:'0 2px 8px rgba(0,0,0,0.08)', transition:'all 0.18s', zIndex:6 }}>
                   ⌕
                 </button>
+              )}
+              {!isMobile && zoomActive && (
+                <div style={{ position:'absolute', bottom:22, right:60, zIndex:6,
+                  fontSize:9, letterSpacing:'0.1em', textTransform:'uppercase', color:'#666666',
+                  background:'rgba(255,255,255,0.9)', padding:'4px 8px', borderRadius:2,
+                  pointerEvents:'none' }}>
+                  Click or ESC to exit
+                </div>
               )}
             </div>
           ) : (
