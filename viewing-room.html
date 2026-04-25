@@ -320,7 +320,7 @@ function WorkRow({ work, index, onSelect }) {
 }
 
 // ── DETAIL SPLIT ──────────────────────────────────────────────────────────────
-function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
+function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
   const work = works[workIdx];
   const total = works.length;
   const idx = workIdx;
@@ -430,7 +430,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext }) {
           <div style={{ padding: isMobile ? '0 16px 32px' : '0 36px 28px', display:'flex', gap:8, flexWrap:'wrap',
             overflowX: isMobile ? 'auto' : 'visible' }}>
             {works.map((w, i) => (
-              <div key={w.id} onClick={() => { if (i < idx) onPrev(); if (i > idx) onNext(); }}
+              <div key={w.id} onClick={() => onJump(i)}
                 className={`thumbnail ${i===idx ? 'active' : ''}`}>
                 {w.imageUrl ? (
                   <img src={w.imageUrl} alt={w.title}
@@ -577,7 +577,8 @@ function App() {
   return (
     <div style={{ height:'100vh', overflow:'hidden' }}>
       <DetailSplit works={works} workIdx={workIdx}
-        onBack={() => setScreen('landing')} onPrev={() => go(-1)} onNext={() => go(1)} />
+        onBack={() => setScreen('landing')} onPrev={() => go(-1)} onNext={() => go(1)}
+        onJump={(i) => setWorkIdx(i)} />
     </div>
   );
 }
