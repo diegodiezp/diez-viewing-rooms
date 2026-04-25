@@ -341,7 +341,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
 
   const hasDetails = work.detailUrls && work.detailUrls.length > 0;
   const totalImages = hasDetails ? 1 + work.detailUrls.length : 1;
-  const currentSrc = detailIndex === -1 ? work.imageUrl : work.detailUrls[detailIndex];
+  const currentSrc = detailIndex === -1 ? (work.imageUrlFull || work.imageUrl) : work.detailUrls[detailIndex];
   const currentLabel = detailIndex === -1
     ? (hasDetails ? 'Click to see detail' : null)
     : (detailIndex < work.detailUrls.length - 1 ? 'Click for next detail' : 'Click to see full view');
@@ -577,8 +577,9 @@ function App() {
         return {
           id: aw.id, title: f['Title'] || 'Untitled', artist: artistName,
           year: f['Year'] || '', info: f['Info (Backup)'] || '',
-          imageUrl: f['Image URL'] || '/api/image?id=' + aw.id,
-          detailUrls: f['Details'] ? Array.from({length: f['Details'].length}, (_, i) => '/api/image?id=' + aw.id + '&field=Details&index=' + i) : [],
+          imageUrl: f['Image URL'] || '/api/image?id=' + aw.id + '&size=large',
+          imageUrlFull: f['Image URL'] || '/api/image?id=' + aw.id + '&size=full',
+          detailUrls: f['Details'] ? Array.from({length: f['Details'].length}, (_, i) => '/api/image?id=' + aw.id + '&field=Details&index=' + i + '&size=full') : [],
           status, available, price,
         };
       });
