@@ -11,6 +11,8 @@ module.exports = async function handler(req, res) {
   const recordId = req.query.id;
   if (!recordId) return res.status(400).json({ error: "Missing 'id' parameter" });
 
+  const fieldName = req.query.field || "Attachments";
+
   try {
     const atRes = await fetch(
       "https://api.airtable.com/v0/" + BASE_ID + "/" + TABLE_ID + "/" + recordId,
@@ -24,7 +26,7 @@ module.exports = async function handler(req, res) {
     if (!atRes.ok) return res.status(atRes.status).json({ error: "Record not found" });
 
     const data = await atRes.json();
-    const attachments = data.fields["Attachments"];
+    const attachments = data.fields[fieldName];
 
     if (!attachments || attachments.length === 0) {
       return res.status(404).json({ error: "No attachment" });
