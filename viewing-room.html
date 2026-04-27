@@ -291,7 +291,7 @@ function InstallationViews({ images, isMobile }) {
         <div className="subtitle-gray" style={{ marginBottom:24 }}>Installation Views</div>
         <div style={{
           display:'grid',
-          gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
+          gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
           gap: isMobile ? '2px' : '3px',
         }}>
           {images.map((img, i) => (
