@@ -155,6 +155,41 @@ const TBL_ARTWORKS = 'tblK8xDtKmakHWt6k';
 const TBL_ARTISTS  = 'tbl3fHryX8bPSYMyN';
 const EMAIL        = 'diego@diez.gallery';
 
+// Engagement tracking endpoint (lives in diez-mail, not in this project)
+const ENGAGEMENT_URL = 'https://diez-mail.vercel.app/api/engagement';
+
+// Read the tracking token once. If absent, the visitor is anonymous and
+// nothing will be logged.
+const TRACKING_TOKEN = new URLSearchParams(window.location.search).get('t');
+
+// Fire an engagement event without blocking navigation. Uses sendBeacon when
+// available so it survives page transitions, falls back to fetch keepalive.
+function trackEngagement(event_type, artwork_id, artwork_title) {
+  if (!TRACKING_TOKEN) return;
+  const payload = JSON.stringify({
+    t: TRACKING_TOKEN,
+    event_type,
+    artwork_id: artwork_id || null,
+    artwork_title: artwork_title || null,
+  });
+  try {
+    if (navigator.sendBeacon) {
+      const blob = new Blob([payload], { type: 'application/json' });
+      navigator.sendBeacon(ENGAGEMENT_URL, blob);
+      return;
+    }
+    fetch(ENGAGEMENT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+      keepalive: true,
+    }).catch(() => {});
+  } catch (err) {
+    // Tracking must never break the user experience
+    console.warn('Engagement tracking failed:', err);
+  }
+}
+
 async function atFetch(tableId, qp = {}) {
   const parts = [PROXY + '?path=' + encodeURIComponent(tableId)];
   Object.entries(qp).forEach(([k, v]) => {
@@ -177,14 +212,17 @@ function Dot({ available }) {
   );
 }
 
-function InquireBtn({ small, artist, title }) {
+function InquireBtn({ small, artist, title, artworkId }) {
   const [h, setH] = useState(false);
   const subject = encodeURIComponent('Inquiry: ' + artist + ' — ' + title);
   return (
     <a href={`mailto:${EMAIL}?subject=${subject}`}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
-      onClick={e => e.stopPropagation()}
+      onClick={e => {
+        e.stopPropagation();
+        trackEngagement('Inquire Click', artworkId, title);
+      }}
       style={{
         display: 'inline-block',
         background: h ? '#000000' : 'transparent',
@@ -439,7 +477,7 @@ function WorkRow({ work, index, onSelect }) {
         </div>
         {work.available && (
           <div style={{ marginTop:16 }}>
-            <InquireBtn small={false} artist={work.artist} title={work.title}/>
+            <InquireBtn small={false} artist={work.artist} title={work.title} artworkId={work.id}/>
           </div>
         )}
       </div>
@@ -619,7 +657,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
               )}
               <div style={{ marginTop:5 }}><Dot available={work.available}/></div>
             </div>
-            {work.available && <InquireBtn artist={work.artist} title={work.title}/>}
+            {work.available && <InquireBtn artist={work.artist} title={work.title} artworkId={work.id}/>}
           </div>
           <div style={{ padding: isMobile ? '0 16px 100px' : '0 36px 28px', display:'flex', gap:8, flexWrap:'wrap',
             overflowX: isMobile ? 'auto' : 'visible' }}>
@@ -739,6 +777,10 @@ function App() {
       setWorks(mapped);
       setStatus('ready');
 
+      // Funnel entry point: log that this identified recipient opened the room.
+      // Anonymous visitors (no ?t= in URL) are silently ignored by the helper.
+      trackEngagement('Viewing Room Open');
+
       // Preload detail images in background
       mapped.forEach(w => {
         w.detailUrls.forEach(url => {
@@ -753,7 +795,12 @@ function App() {
     }
   }
 
-  const openWork = useCallback((i) => { setWorkIdx(i); setScreen('detail'); }, []);
+  const openWork = useCallback((i) => {
+    const w = works[i];
+    if (w) trackEngagement('Artwork View', w.id, w.title);
+    setWorkIdx(i);
+    setScreen('detail');
+  }, [works]);
   const go = useCallback((dir) => {
     setWorkIdx(prev => { const next = prev + dir; if (next < 0 || next >= works.length) return prev; return next; });
   }, [works.length]);
