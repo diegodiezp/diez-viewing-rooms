@@ -491,13 +491,18 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
   const total = works.length;
   const idx = workIdx;
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
   const [detailIndex, setDetailIndex] = useState(-1); // -1 = main image, 0+ = detail images
   const [zoomActive, setZoomActive] = useState(false);
   const [zoomPos, setZoomPos] = useState({ x: 0, y: 0, visible: false });
   const imgRef = React.useRef(null);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleResize = () => {
+      const w = window.innerWidth;
+      setIsMobile(w < 768);
+      setIsTablet(w >= 768 && w < 1024);
+    };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -525,6 +530,8 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
     setDetailIndex(prev => prev < work.detailUrls.length - 1 ? prev + 1 : -1);
   }
 
+  const stackLayout = isMobile || isTablet;
+
   return (
     <div style={{ height:'100vh', display:'flex', flexDirection:'column', overflow:'hidden', background:'#FFFFFF' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
@@ -537,12 +544,12 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
         </div>
         <span className="counter-text">{String(idx+1).padStart(2,'0')} / {String(total).padStart(2,'0')}</span>
       </div>
-      <div style={{ flex:1, display:'flex', flexDirection: isMobile ? 'column' : 'row',
-        overflow: isMobile ? 'auto' : 'hidden' }}>
+      <div style={{ flex:1, display:'flex', flexDirection: stackLayout ? 'column' : 'row',
+        overflow: stackLayout ? 'auto' : 'hidden' }}>
         {/* Image panel */}
-        <div style={{ flex: isMobile ? 'none' : '0 0 60%', background:'#FFFFFF',
+        <div style={{ flex: stackLayout ? 'none' : '0 0 60%', background:'#FFFFFF',
           display:'flex', alignItems:'center', justifyContent:'center',
-          padding:'0', position:'relative', overflow: isMobile ? 'visible' : 'hidden' }}>
+          padding:'0', position:'relative', overflow: stackLayout ? 'visible' : 'hidden' }}>
           {work.imageUrl ? (
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
               width:'100%',
@@ -563,8 +570,8 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
                 ref={imgRef}
                 key={currentSrc}
                 alt={work.title + (detailIndex >= 0 ? ' detail ' + (detailIndex + 1) : '')}
-                style={isMobile
-                  ? { width:'100%', height:'auto', maxHeight:'80vh', objectFit:'contain', display:'block', animation:'fadeIn 0.35s ease both' }
+                style={stackLayout
+                  ? { width:'100%', height:'auto', maxHeight: isTablet ? '60vh' : '80vh', objectFit:'contain', display:'block', animation:'fadeIn 0.35s ease both' }
                   : { maxWidth:'100%', maxHeight:'calc(100vh - 100px)', width:'auto', height:'auto', objectFit:'contain', display:'block', animation:'fadeIn 0.35s ease both' }
                 }/>
               {zoomActive && zoomPos.visible && imgRef.current && (
@@ -591,7 +598,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
               {!isMobile && (
                 <button onClick={(e) => { e.stopPropagation(); setZoomActive(z => !z); }}
                   title={zoomActive ? 'Disable zoom (ESC)' : 'Enable zoom'}
-                  style={{ position:'absolute', bottom:16, right:16,
+                  style={{ position:'absolute', bottom: stackLayout ? 24 : 16, right: stackLayout ? 24 : 16,
                     width:34, height:34, borderRadius:'50%', border:'1px solid rgba(0,0,0,0.2)',
                     background: zoomActive ? '#000000' : 'rgba(255,255,255,0.9)',
                     color: zoomActive ? '#FFFFFF' : '#444444',
@@ -616,7 +623,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
               <span style={{ fontSize:10, color:'#BBB', letterSpacing:'0.1em', textTransform:'uppercase' }}>No image</span>
             </div>
           )}
-          {!isMobile && [{fn:onPrev,dis:idx===0,lbl:'←',pos:'left'},{fn:onNext,dis:idx===total-1,lbl:'→',pos:'right'}].map(a => (
+          {!stackLayout && [{fn:onPrev,dis:idx===0,lbl:'←',pos:'left'},{fn:onNext,dis:idx===total-1,lbl:'→',pos:'right'}].map(a => (
             <button key={a.pos} onClick={a.fn} disabled={a.dis}
               style={{ position:'absolute', [a.pos]:16, top:'50%', transform:'translateY(-50%)',
                 width:38, height:38, borderRadius:'50%', border:'none',
@@ -627,10 +634,10 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
           ))}
         </div>
         {/* Info panel */}
-        <div style={{ flex: isMobile ? '0 0 auto' : '0 0 40%', overflowY:'auto',
-          borderLeft: isMobile ? 'none' : '1px solid #000000', borderTop: isMobile ? '1px solid #000000' : 'none',
+        <div style={{ flex: stackLayout ? '0 0 auto' : '0 0 40%', overflowY:'auto',
+          borderLeft: stackLayout ? 'none' : '1px solid #000000', borderTop: stackLayout ? '1px solid #000000' : 'none',
           display:'flex', flexDirection:'column', animation:'slideRight 0.35s ease both',
-          maxHeight: isMobile ? 'none' : 'auto' }}>
+          maxHeight: stackLayout ? 'none' : 'auto' }}>
           <div style={{ padding: isMobile ? '16px 16px 0' : '32px 36px 0' }}>
             <div className="artist-name">{work.artist}</div>
             <h1 className="work-title">{work.title}</h1>
@@ -647,7 +654,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
               </div>
             ))}
           </div>
-          <div style={{ flex:1 }}/>
+          {!stackLayout && <div style={{ flex:1 }}/>}
           <div className="divider" style={{ padding: isMobile ? '16px 16px' : '20px 36px 28px', margin:0,
             display:'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent:'space-between',
             alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? 12 : 0 }}>
@@ -659,7 +666,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
             </div>
             {work.available && <InquireBtn artist={work.artist} title={work.title} artworkId={work.id}/>}
           </div>
-          <div style={{ padding: isMobile ? '0 16px 100px' : '0 36px 28px', display:'flex', gap:8, flexWrap:'wrap',
+          <div style={{ padding: isMobile ? '0 16px 100px' : isTablet ? '0 36px 60px' : '0 36px 28px', display:'flex', gap:8, flexWrap:'wrap',
             overflowX: isMobile ? 'auto' : 'visible' }}>
             {works.map((w, i) => (
               <div key={w.id} onClick={() => onJump(i)}
