@@ -595,10 +595,10 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
                   {currentLabel}{totalImages > 2 ? ` (${detailIndex + 2}/${totalImages})` : ''}
                 </div>
               )}
-              {!isMobile && (
+              {!stackLayout && (
                 <button onClick={(e) => { e.stopPropagation(); setZoomActive(z => !z); }}
                   title={zoomActive ? 'Disable zoom (ESC)' : 'Enable zoom'}
-                  style={{ position:'absolute', bottom: stackLayout ? 24 : 16, right: stackLayout ? 24 : 16,
+                  style={{ position:'absolute', bottom:16, right:16,
                     width:34, height:34, borderRadius:'50%', border:'1px solid rgba(0,0,0,0.2)',
                     background: zoomActive ? '#000000' : 'rgba(255,255,255,0.9)',
                     color: zoomActive ? '#FFFFFF' : '#444444',
@@ -608,7 +608,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
                   ⌕
                 </button>
               )}
-              {!isMobile && zoomActive && (
+              {!stackLayout && zoomActive && (
                 <div style={{ position:'absolute', bottom:22, right:60, zIndex:6,
                   fontSize:9, letterSpacing:'0.1em', textTransform:'uppercase', color:'#666666',
                   background:'rgba(255,255,255,0.9)', padding:'4px 8px', borderRadius:2,
