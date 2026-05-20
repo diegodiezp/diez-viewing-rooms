@@ -200,21 +200,34 @@ async function atFetch(tableId, qp = {}) {
   return res.json();
 }
 
-function Dot({ available }) {
+// Status indicator: three states — Available (green), On Hold (amber), Sold (grey).
+function Dot({ status, available }) {
+  const onHold = status === 'On hold';
+  let color, dotColor, label;
+  if (onHold) {
+    color = '#8A7A4A'; dotColor = '#C4A24C'; label = 'On Hold';
+  } else if (available) {
+    color = '#5A7A5A'; dotColor = '#7AB07A'; label = 'Available';
+  } else {
+    color = '#999999'; dotColor = '#CCCCCC'; label = 'Sold';
+  }
   return (
     <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11,
-      letterSpacing:'0.07em', textTransform:'uppercase',
-      color: available ? '#5A7A5A' : '#999999' }}>
+      letterSpacing:'0.07em', textTransform:'uppercase', color }}>
       <span style={{ width:5, height:5, borderRadius:'50%', display:'inline-block',
-        background: available ? '#7AB07A' : '#CCCCCC' }}/>
-      {available ? 'Available' : 'Sold'}
+        background: dotColor }}/>
+      {label}
     </span>
   );
 }
 
-function InquireBtn({ small, artist, title, artworkId }) {
+// Inquire / Waitlist button. On Hold works show "Join waitlist" and use a
+// "Waitlist:" email subject so incoming emails are easy to triage.
+function InquireBtn({ small, artist, title, artworkId, onHold }) {
   const [h, setH] = useState(false);
-  const subject = encodeURIComponent('Inquiry: ' + artist + ' — ' + title);
+  const subjectPrefix = onHold ? 'Waitlist: ' : 'Inquiry: ';
+  const subject = encodeURIComponent(subjectPrefix + artist + ' — ' + title);
+  const label = onHold ? 'Join waitlist' : 'Inquire';
   return (
     <a href={`mailto:${EMAIL}?subject=${subject}`}
       onMouseEnter={() => setH(true)}
@@ -233,8 +246,8 @@ function InquireBtn({ small, artist, title, artworkId }) {
         letterSpacing: '0.12em', textTransform: 'uppercase',
         fontFamily: "'Replica', sans-serif", fontWeight: 400,
         cursor: 'pointer', borderRadius: 1, transition: 'all 0.18s',
-        textDecoration: 'none',
-      }}>Inquire</a>
+        textDecoration: 'none', whiteSpace: 'nowrap',
+      }}>{label}</a>
   );
 }
 
@@ -438,6 +451,12 @@ function WorkRow({ work, index, onSelect }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // A work that is On Hold is not "available" for direct sale but should still
+  // show its price and a (waitlist) Inquire button.
+  const onHold = work.status === 'On hold';
+  const showInquire = work.available || onHold;
+  const showPrice = work.status !== 'Sold';
+
   return (
     <div onClick={onSelect} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{
@@ -468,16 +487,16 @@ function WorkRow({ work, index, onSelect }) {
         {work.year && <div className="year-value" style={{ marginTop:14 }}>{work.year}</div>}
         {work.info && <div className="details-value" style={{ marginTop:3 }}>{work.info}</div>}
         <div style={{ marginTop:20 }}>
-          {work.price && (
+          {work.price && showPrice && (
             <div className="price" style={{ marginBottom:8 }}>
-              {work.status === 'Sold' ? '' : `€ ${Number(work.price).toLocaleString('de-DE')}`}
+              {`€ ${Number(work.price).toLocaleString('de-DE')}`}
             </div>
           )}
-          <Dot available={work.available}/>
+          <Dot status={work.status} available={work.available}/>
         </div>
-        {work.available && (
+        {showInquire && (
           <div style={{ marginTop:16 }}>
-            <InquireBtn small={false} artist={work.artist} title={work.title} artworkId={work.id}/>
+            <InquireBtn small={false} artist={work.artist} title={work.title} artworkId={work.id} onHold={onHold}/>
           </div>
         )}
       </div>
@@ -524,6 +543,11 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
   const currentLabel = detailIndex === -1
     ? (hasDetails ? 'Click to see detail' : null)
     : (detailIndex < work.detailUrls.length - 1 ? 'Click for next detail' : 'Click to see full view');
+
+  // On Hold logic mirrors the landing row.
+  const onHold = work.status === 'On hold';
+  const showInquire = work.available || onHold;
+  const showPrice = work.status !== 'Sold';
 
   function cycleImage() {
     if (!hasDetails) return;
@@ -659,12 +683,12 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
             display:'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent:'space-between',
             alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? 12 : 0 }}>
             <div>
-              {work.price && work.status !== 'Sold' && (
+              {work.price && showPrice && (
                 <div className="price">€ {Number(work.price).toLocaleString('de-DE')}</div>
               )}
-              <div style={{ marginTop:5 }}><Dot available={work.available}/></div>
+              <div style={{ marginTop:5 }}><Dot status={work.status} available={work.available}/></div>
             </div>
-            {work.available && <InquireBtn artist={work.artist} title={work.title} artworkId={work.id}/>}
+            {showInquire && <InquireBtn artist={work.artist} title={work.title} artworkId={work.id} onHold={onHold}/>}
           </div>
           <div style={{ padding: isMobile ? '0 16px 100px' : isTablet ? '0 36px 60px' : '0 36px 28px', display:'flex', gap:8, flexWrap:'wrap',
             overflowX: isMobile ? 'auto' : 'visible' }}>
