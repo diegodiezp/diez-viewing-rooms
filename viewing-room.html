@@ -154,7 +154,7 @@ body {
 }
 </style>
 <script type="text/babel">
-const { useState, useEffect, useCallback } = React;
+const { useState, useEffect, useCallback, useRef } = React;
 
 const PROXY        = '/api/airtable';
 const TBL_VR       = 'tbl8EUvqiOLudNvjv';
@@ -833,14 +833,27 @@ function App() {
   }
 
   const openWork = useCallback((i) => {
-    const w = works[i];
-    if (w) trackEngagement('Artwork View', w.id, w.title);
     setWorkIdx(i);
     setScreen('detail');
-  }, [works]);
+  }, []);
   const go = useCallback((dir) => {
     setWorkIdx(prev => { const next = prev + dir; if (next < 0 || next >= works.length) return prev; return next; });
   }, [works.length]);
+
+  // Track every artwork actually shown in the detail view. Centralising the
+  // event here means it fires no matter how the visitor got to the work:
+  // clicking from the landing, arrow keys, prev/next buttons or the thumbnail
+  // strip. One event per work shown, deduplicated against the previous index.
+  const lastTrackedIdx = useRef(-1);
+  useEffect(() => {
+    if (screen !== 'detail') { lastTrackedIdx.current = -1; return; }
+    if (lastTrackedIdx.current === workIdx) return;
+    const w = works[workIdx];
+    if (w) {
+      trackEngagement('Artwork View', w.id, w.title);
+      lastTrackedIdx.current = workIdx;
+    }
+  }, [screen, workIdx, works]);
 
   useEffect(() => {
     const h = (e) => {
