@@ -58,6 +58,15 @@ module.exports = async function handler(req, res) {
     });
     const data = await atRes.json();
     if (!atRes.ok) return res.status(atRes.status).json(data);
+
+    // CDN caching: 2 min fresh on Vercel's edge, then up to 10 min serving
+    // stale while revalidating in background. Absorbs traffic spikes after a
+    // mailing (many visitors = 1 Airtable call) and keeps us far from
+    // Airtable's 5 req/s limit. Edits in Airtable appear within ~2 minutes.
+    res.setHeader(
+      "Cache-Control",
+      "public, s-maxage=120, stale-while-revalidate=600"
+    );
     return res.status(200).json(data);
   } catch (err) {
     return res.status(500).json({ error: err.message });
