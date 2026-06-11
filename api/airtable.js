@@ -7,10 +7,26 @@ const ALLOWED_TABLES = [
   "tbl3fHryX8bPSYMyN", // Artists
 ];
 
-module.exports = async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+// Only these origins may consume this proxy from the browser
+const ALLOWED_ORIGINS = [
+  "https://rooms.diez.gallery",
+  "https://diez.gallery",
+  "https://www.diez.gallery",
+  "http://localhost:3000", // local development
+];
+
+function applyCors(req, res) {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
+module.exports = async function handler(req, res) {
+  applyCors(req, res);
 
   if (req.method === "OPTIONS") return res.status(200).end();
 

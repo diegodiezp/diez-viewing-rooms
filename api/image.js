@@ -1,8 +1,29 @@
 const BASE_ID = "appkTmFvjmDLOQS4p";
 const TABLE_ID = "tblK8xDtKmakHWt6k";
 
+// Only these image fields can be served
+const ALLOWED_FIELDS = ["Image", "Details"];
+
+// Only these origins may consume this endpoint from the browser
+const ALLOWED_ORIGINS = [
+  "https://rooms.diez.gallery",
+  "https://diez.gallery",
+  "https://www.diez.gallery",
+  "http://localhost:3000", // local development
+];
+
+function applyCors(req, res) {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
 module.exports = async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  applyCors(req, res);
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const token = process.env.AIRTABLE_PAT;
@@ -14,6 +35,10 @@ module.exports = async function handler(req, res) {
   // size: small (36px) | large (512px) | full (3000px) | original. Default: large.
   const size = (req.query.size || "large").toLowerCase();
   if (!recordId) return res.status(400).json({ error: "Missing 'id' parameter" });
+
+  if (!ALLOWED_FIELDS.includes(field)) {
+    return res.status(403).json({ error: "Access denied" });
+  }
 
   try {
     const atRes = await fetch(

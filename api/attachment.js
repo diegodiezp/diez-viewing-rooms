@@ -1,8 +1,29 @@
 const BASE_ID = "appkTmFvjmDLOQS4p";
 const TABLE_ID = "tbl8EUvqiOLudNvjv";
 
+// Only these attachment fields can be served
+const ALLOWED_FIELDS = ["Attachments", "Installation Views"];
+
+// Only these origins may consume this endpoint from the browser
+const ALLOWED_ORIGINS = [
+  "https://rooms.diez.gallery",
+  "https://diez.gallery",
+  "https://www.diez.gallery",
+  "http://localhost:3000", // local development
+];
+
+function applyCors(req, res) {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
 module.exports = async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  applyCors(req, res);
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const token = process.env.AIRTABLE_PAT;
@@ -12,6 +33,9 @@ module.exports = async function handler(req, res) {
   if (!recordId) return res.status(400).json({ error: "Missing 'id' parameter" });
 
   const fieldName = req.query.field || "Attachments";
+  if (!ALLOWED_FIELDS.includes(fieldName)) {
+    return res.status(403).json({ error: "Access denied" });
+  }
 
   try {
     const atRes = await fetch(
@@ -40,9 +64,15 @@ module.exports = async function handler(req, res) {
     const contentType = fileRes.headers.get("content-type") || "application/octet-stream";
     const buffer = Buffer.from(await fileRes.arrayBuffer());
 
+    // Sanitize filename: strip quotes and control characters so the header
+    // can never be broken or injected by an odd filename in Airtable.
+    const safeName = String(file.filename || "document.pdf")
+      .replace(/["\\\r\n]/g, "")
+      .slice(0, 150);
+
     res.setHeader("Content-Type", contentType);
     res.setHeader("Cache-Control", "public, max-age=86400");
-    res.setHeader("Content-Disposition", "inline; filename=\"" + (file.filename || "document.pdf") + "\"");
+    res.setHeader("Content-Disposition", "inline; filename=\"" + safeName + "\"");
     return res.status(200).send(buffer);
   } catch (err) {
     return res.status(500).json({ error: err.message });
