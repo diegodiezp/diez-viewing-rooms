@@ -1,5 +1,13 @@
 {
   "name": "diez-viewing-rooms",
   "version": "1.0.0",
-  "private": true
+  "private": true,
+  "scripts": {
+    "build": "babel src/viewing-room.jsx --presets @babel/preset-react -o files/viewing-room.js"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.29.7",
+    "@babel/core": "^7.29.7",
+    "@babel/preset-react": "^7.29.7"
+  }
 }

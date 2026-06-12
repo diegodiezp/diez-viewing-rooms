@@ -1,3 +1,5 @@
+const { applyCors } = require("./_lib/cors");
+
 const BASE_ID = "appkTmFvjmDLOQS4p";
 
 // Only these tables can be accessed through the proxy
@@ -7,23 +9,14 @@ const ALLOWED_TABLES = [
   "tbl3fHryX8bPSYMyN", // Artists
 ];
 
-// Only these origins may consume this proxy from the browser
-const ALLOWED_ORIGINS = [
-  "https://rooms.diez.gallery",
-  "https://diez.gallery",
-  "https://www.diez.gallery",
-  "http://localhost:3000", // local development
+// Only these filterByFormula shapes are allowed through the proxy. The
+// frontend only ever sends a slug lookup or a RECORD_ID() OR-chain; anything
+// else (formula injection via a crafted slug, probing other fields) is
+// rejected before it reaches Airtable.
+const ALLOWED_FORMULAS = [
+  /^\{URL slug\} = "[^"\\]*"$/,
+  /^OR\(RECORD_ID\(\)="rec[a-zA-Z0-9]+"(,RECORD_ID\(\)="rec[a-zA-Z0-9]+")*\)$/,
 ];
-
-function applyCors(req, res) {
-  const origin = req.headers.origin;
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
-  }
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-}
 
 module.exports = async function handler(req, res) {
   applyCors(req, res);
@@ -39,6 +32,11 @@ module.exports = async function handler(req, res) {
   // Block access to tables not in the whitelist
   if (!ALLOWED_TABLES.includes(path)) {
     return res.status(403).json({ error: "Access denied" });
+  }
+
+  const formula = queryParams.filterByFormula;
+  if (formula && !ALLOWED_FORMULAS.some((re) => re.test(formula))) {
+    return res.status(400).json({ error: "Invalid filter" });
   }
 
   const params = new URLSearchParams();
@@ -69,6 +67,7 @@ module.exports = async function handler(req, res) {
     );
     return res.status(200).json(data);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error("airtable proxy error:", err);
+    return res.status(500).json({ error: "Internal error" });
   }
 };

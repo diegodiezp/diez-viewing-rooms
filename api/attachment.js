@@ -1,26 +1,10 @@
+const { applyCors } = require("./_lib/cors");
+
 const BASE_ID = "appkTmFvjmDLOQS4p";
 const TABLE_ID = "tbl8EUvqiOLudNvjv";
 
 // Only these attachment fields can be served
 const ALLOWED_FIELDS = ["Attachments", "Installation Views"];
-
-// Only these origins may consume this endpoint from the browser
-const ALLOWED_ORIGINS = [
-  "https://rooms.diez.gallery",
-  "https://diez.gallery",
-  "https://www.diez.gallery",
-  "http://localhost:3000", // local development
-];
-
-function applyCors(req, res) {
-  const origin = req.headers.origin;
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
-  }
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-}
 
 module.exports = async function handler(req, res) {
   applyCors(req, res);
@@ -75,6 +59,7 @@ module.exports = async function handler(req, res) {
     res.setHeader("Content-Disposition", "inline; filename=\"" + safeName + "\"");
     return res.status(200).send(buffer);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error("attachment proxy error:", err);
+    return res.status(500).json({ error: "Internal error" });
   }
 };

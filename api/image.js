@@ -1,26 +1,10 @@
+const { applyCors } = require("./_lib/cors");
+
 const BASE_ID = "appkTmFvjmDLOQS4p";
 const TABLE_ID = "tblK8xDtKmakHWt6k";
 
 // Only these image fields can be served
 const ALLOWED_FIELDS = ["Image", "Details"];
-
-// Only these origins may consume this endpoint from the browser
-const ALLOWED_ORIGINS = [
-  "https://rooms.diez.gallery",
-  "https://diez.gallery",
-  "https://www.diez.gallery",
-  "http://localhost:3000", // local development
-];
-
-function applyCors(req, res) {
-  const origin = req.headers.origin;
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
-  }
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-}
 
 module.exports = async function handler(req, res) {
   applyCors(req, res);
@@ -71,7 +55,7 @@ module.exports = async function handler(req, res) {
 
     if (!imageRes.ok) return res.status(500).json({ error: "Failed to fetch image" });
 
-    const contentType = imageRes.headers.get("content-type");
+    const contentType = imageRes.headers.get("content-type") || "image/jpeg";
     const buffer = Buffer.from(await imageRes.arrayBuffer());
 
     res.setHeader("Content-Type", contentType);
@@ -84,6 +68,7 @@ module.exports = async function handler(req, res) {
     );
     return res.status(200).send(buffer);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error("image proxy error:", err);
+    return res.status(500).json({ error: "Internal error" });
   }
 };

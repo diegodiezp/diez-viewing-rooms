@@ -1,5 +1,10 @@
 const crypto = require('crypto');
 
+// Hosts Airtable serves attachment files from. The endpoint downloads
+// whatever URL it is given, so anything outside this list is rejected to
+// prevent it being used as an open proxy / SSRF gadget.
+const ALLOWED_IMAGE_HOSTS = /(^|\.)(airtableusercontent\.com|airtable\.com)$/;
+
 function signRequest(method, path, headers, accessKey, secretKey, region) {
   const now = new Date();
   const dateStamp = now.toISOString().replace(/[:-]|\.\d{3}/g, '').slice(0, 8);
@@ -31,9 +36,28 @@ function signRequest(method, path, headers, accessKey, secretKey, region) {
   return headers;
 }
 
+// Constant-time comparison so the secret can't be guessed byte by byte.
+function secretMatches(provided, expected) {
+  if (typeof provided !== 'string' || !provided) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // This endpoint writes to R2 and to Airtable, so it must never be public.
+  // Callers (Airtable automations / scripts) send the shared secret in the
+  // x-sync-secret header; set SYNC_SECRET in the Vercel project env.
+  const secret = process.env.SYNC_SECRET;
+  if (!secret) {
+    return res.status(500).json({ error: 'SYNC_SECRET not configured' });
+  }
+  if (!secretMatches(req.headers['x-sync-secret'], secret)) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
@@ -41,6 +65,18 @@ module.exports = async (req, res) => {
 
     if (!recordId || !imageUrl) {
       return res.status(400).json({ error: 'Missing recordId or imageUrl' });
+    }
+
+    let imageHost;
+    try {
+      const parsed = new URL(imageUrl);
+      if (parsed.protocol !== 'https:') throw new Error('not https');
+      imageHost = parsed.hostname;
+    } catch {
+      return res.status(400).json({ error: 'Invalid imageUrl' });
+    }
+    if (!ALLOWED_IMAGE_HOSTS.test(imageHost)) {
+      return res.status(403).json({ error: 'imageUrl host not allowed' });
     }
 
     // Descargar imagen desde Airtable
@@ -105,6 +141,6 @@ module.exports = async (req, res) => {
     return res.status(200).json({ success: true, r2Url: r2Url });
   } catch (error) {
     console.error('Error:', error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: 'Internal error' });
   }
 };
