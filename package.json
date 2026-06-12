@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "babel src/viewing-room.jsx --presets @babel/preset-react -o files/viewing-room.js"
+    "compile": "babel src/viewing-room.jsx --presets @babel/preset-react -o files/viewing-room.js"
   },
   "devDependencies": {
     "@babel/cli": "^7.29.7",

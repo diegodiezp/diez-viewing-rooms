@@ -21,7 +21,7 @@ After changing `src/viewing-room.jsx`:
 
 ```sh
 npm install        # first time only
-npm run build      # regenerates files/viewing-room.js
+npm run compile    # regenerates files/viewing-room.js
 ```
 
 Commit both the source and the compiled file.
