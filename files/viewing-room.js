@@ -479,7 +479,7 @@ function Landing({
       color: '#333333'
     }
   }, /*#__PURE__*/React.createElement("a", {
-    href: "https://airtable.com/appkTmFvjmDLOQS4p/pageOJZwubCWxkwCs/form",
+    href: "https://t.diez.gallery/diez-newsletter.html",
     target: "_blank",
     rel: "noopener noreferrer",
     style: {
