@@ -131,8 +131,17 @@ function InquireBtn({
   const subjectPrefix = onHold ? 'Waitlist: ' : 'Inquiry: ';
   const subject = encodeURIComponent(subjectPrefix + artist + ' — ' + title);
   const label = onHold ? 'Join waitlist' : 'Inquire';
-  return /*#__PURE__*/React.createElement("a", {
-    href: `mailto:${EMAIL}?subject=${subject}`,
+  const workUrl = window.location.origin + window.location.pathname + '?work=' + artworkId;
+  const body = encodeURIComponent('Hello Diego,\n\nI would like to inquire about:\n' + artist + ', ' + title + '\n' + workUrl + '\n\n');
+  const waText = encodeURIComponent('Hello Diego, I ' + (onHold ? 'would like to join the waitlist for' : 'am interested in') + ' ' + artist + ', ' + title + ' ' + workUrl);
+  const waHref = 'https://wa.me/31633261845?text=' + waText;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("a", {
+    href: `mailto:${EMAIL}?subject=${subject}&body=${body}`,
     onMouseEnter: () => setH(true),
     onMouseLeave: () => setH(false),
     onClick: e => {
@@ -156,7 +165,25 @@ function InquireBtn({
       textDecoration: 'none',
       whiteSpace: 'nowrap'
     }
-  }, label);
+  }, label), /*#__PURE__*/React.createElement("a", {
+    href: waHref,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    onClick: e => {
+      e.stopPropagation();
+      trackEngagement('WhatsApp Click', artworkId, title);
+    },
+    style: {
+      marginLeft: 12,
+      fontSize: small ? 10 : 11,
+      letterSpacing: '0.12em',
+      textTransform: 'uppercase',
+      color: '#666666',
+      textDecoration: 'underline',
+      textUnderlineOffset: 3,
+      fontFamily: "'Replica', sans-serif"
+    }
+  }, "WhatsApp"));
 }
 
 // ── LIGHTBOX ──────────────────────────────────────────────────────────────────
