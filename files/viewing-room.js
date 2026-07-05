@@ -348,7 +348,10 @@ function InstallationViews({
     }
   }, images.map((img, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
-    onClick: () => setLightbox(i),
+    onClick: () => {
+      setLightbox(i);
+      trackEngagement('Lightbox Open', null, 'Installation view ' + (i + 1));
+    },
     style: {
       overflow: 'hidden',
       cursor: 'pointer',
@@ -441,6 +444,7 @@ function Landing({
     target: "_blank",
     rel: "noopener noreferrer",
     download: file.filename,
+    onClick: () => trackEngagement('PDF Download', null, file.filename),
     style: {
       display: 'inline-block',
       fontSize: 12,
