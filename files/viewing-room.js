@@ -234,7 +234,7 @@ function Lightbox({
     }
   }, /*#__PURE__*/React.createElement("img", {
     key: idx,
-    src: images[idx].url,
+    src: images[idx].fullUrl || images[idx].url,
     alt: 'Installation view ' + (idx + 1),
     style: {
       maxWidth: '100%',
@@ -479,7 +479,7 @@ function Landing({
       color: '#333333'
     }
   }, /*#__PURE__*/React.createElement("a", {
-    href: "https://t.diez.gallery/diez-newsletter.html",
+    href: "https://airtable.com/appkTmFvjmDLOQS4p/pageOJZwubCWxkwCs/form",
     target: "_blank",
     rel: "noopener noreferrer",
     style: {
@@ -1059,6 +1059,8 @@ function App() {
   const [works, setWorks] = useState([]);
   const [screen, setScreen] = useState('landing');
   const [workIdx, setWorkIdx] = useState(0);
+  const landingScrollRef = useRef(null);
+  const savedScroll = useRef(0);
 
   // Strip quotes/backslashes so the slug can never break out of the Airtable
   // formula string (the proxy validates this server-side too).
@@ -1104,7 +1106,8 @@ function App() {
           filename: att.filename || 'Document'
         })),
         installViews: installAttachments.map((att, i) => ({
-          url: '/api/attachment?id=' + vrRecordId + '&field=Installation%20Views&index=' + i,
+          url: '/api/attachment?id=' + vrRecordId + '&field=Installation%20Views&index=' + i + '&size=large',
+          fullUrl: '/api/attachment?id=' + vrRecordId + '&field=Installation%20Views&index=' + i + '&size=full',
           filename: att.filename || 'Installation view'
         }))
       });
@@ -1156,6 +1159,20 @@ function App() {
       setWorks(mapped);
       setStatus('ready');
 
+      // Deep link: ?work=recXXX opens straight into that artwork's detail view.
+      const deepId = new URLSearchParams(window.location.search).get('work');
+      if (deepId) {
+        const i = mapped.findIndex(w => w.id === deepId);
+        if (i >= 0) {
+          setWorkIdx(i);
+          setScreen('detail');
+          history.replaceState({
+            screen: 'detail',
+            workIdx: i
+          }, '', window.location);
+        }
+      }
+
       // Funnel entry point: log that this identified recipient opened the room.
       // Anonymous visitors (no ?t= in URL) are silently ignored by the helper.
       trackEngagement('Viewing Room Open');
@@ -1174,9 +1191,19 @@ function App() {
     }
   }
   const openWork = useCallback(i => {
+    savedScroll.current = landingScrollRef.current?.scrollTop || 0;
     setWorkIdx(i);
     setScreen('detail');
-  }, []);
+    const w = works[i];
+    if (w) {
+      const url = new URL(window.location);
+      url.searchParams.set('work', w.id);
+      history.pushState({
+        screen: 'detail',
+        workIdx: i
+      }, '', url);
+    }
+  }, [works]);
   const go = useCallback(dir => {
     setWorkIdx(prev => {
       const next = prev + dir;
@@ -1184,6 +1211,42 @@ function App() {
       return next;
     });
   }, [works.length]);
+
+  // Keep the URL's ?work= in sync while navigating between works in detail
+  // view, without adding a history entry per work (back should return to the
+  // landing in one step).
+  useEffect(() => {
+    if (screen !== 'detail') return;
+    const w = works[workIdx];
+    if (!w) return;
+    const url = new URL(window.location);
+    url.searchParams.set('work', w.id);
+    history.replaceState({
+      screen: 'detail',
+      workIdx
+    }, '', url);
+  }, [workIdx, screen, works]);
+
+  // Browser back/forward button support.
+  useEffect(() => {
+    const onPop = e => {
+      if (e.state && e.state.screen === 'detail') {
+        setWorkIdx(e.state.workIdx);
+        setScreen('detail');
+      } else {
+        setScreen('landing');
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  // Restore landing scroll position when returning from detail view.
+  useEffect(() => {
+    if (screen === 'landing' && landingScrollRef.current) {
+      landingScrollRef.current.scrollTop = savedScroll.current;
+    }
+  }, [screen]);
 
   // Track every artwork actually shown in the detail view. Centralising the
   // event here means it fires no matter how the visitor got to the work:
@@ -1207,7 +1270,7 @@ function App() {
       if (screen !== 'detail') return;
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(1);
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') go(-1);
-      if (e.key === 'Escape') setScreen('landing');
+      if (e.key === 'Escape') history.back();
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
@@ -1218,6 +1281,7 @@ function App() {
   });
   if (screen === 'landing') {
     return /*#__PURE__*/React.createElement("div", {
+      ref: landingScrollRef,
       style: {
         height: '100vh',
         overflowY: 'auto'
@@ -1236,7 +1300,7 @@ function App() {
   }, /*#__PURE__*/React.createElement(DetailSplit, {
     works: works,
     workIdx: workIdx,
-    onBack: () => setScreen('landing'),
+    onBack: () => history.back(),
     onPrev: () => go(-1),
     onNext: () => go(1),
     onJump: i => setWorkIdx(i)
