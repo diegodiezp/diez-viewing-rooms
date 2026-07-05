@@ -21,6 +21,7 @@ module.exports = async function handler(req, res) {
   let html = fs.readFileSync(path.join(process.cwd(), "viewing-room.html"), "utf8");
 
   const slug = String(req.query.vr || "").replace(/["\\]/g, "");
+  const workId = String(req.query.work || "").replace(/[^a-zA-Z0-9]/g, "");
   const token = process.env.AIRTABLE_PAT;
 
   try {
@@ -73,16 +74,31 @@ module.exports = async function handler(req, res) {
           const origin = "https://" + host;
           let extraTags = '<meta property="og:url" content="' + escapeHtml(origin + "/" + slug) + '">';
 
-          const installViews = f["Installation Views"] || [];
-          if (installViews.length > 0) {
-            const imgUrl = origin + "/api/attachment?id=" + rec.id + "&field=Installation%20Views&index=0";
+          // A deep link to a specific artwork (?work=recXXX) should preview
+          // that artwork's image, not the room's generic installation view.
+          // Skip the room image entirely so scrapers (which take the first
+          // og:image tag) never pick the wrong one.
+          if (workId && workId.startsWith("rec")) {
+            const workImg = origin + "/api/image?id=" + workId + "&size=large";
             extraTags +=
-              '<meta property="og:image" content="' + escapeHtml(imgUrl) + '">' +
-              '<meta name="twitter:image" content="' + escapeHtml(imgUrl) + '">';
+              '<meta property="og:image" content="' + escapeHtml(workImg) + '">' +
+              '<meta name="twitter:image" content="' + escapeHtml(workImg) + '">';
             html = html.replace(
               /(name="twitter:card" content=")[^"]*(")/,
               "$1summary_large_image$2"
             );
+          } else {
+            const installViews = f["Installation Views"] || [];
+            if (installViews.length > 0) {
+              const imgUrl = origin + "/api/attachment?id=" + rec.id + "&field=Installation%20Views&index=0";
+              extraTags +=
+                '<meta property="og:image" content="' + escapeHtml(imgUrl) + '">' +
+                '<meta name="twitter:image" content="' + escapeHtml(imgUrl) + '">';
+              html = html.replace(
+                /(name="twitter:card" content=")[^"]*(")/,
+                "$1summary_large_image$2"
+              );
+            }
           }
           html = html.replace('<meta property="og:type"', extraTags + '\n<meta property="og:type"');
         }
