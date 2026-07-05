@@ -669,6 +669,13 @@ function App() {
       if (!vrData.records?.length) { setStatus('error'); setErrorMsg('Viewing room not found.'); return; }
       const vr = vrData.records[0].fields;
       const vrRecordId = vrData.records[0].id;
+
+      if (vr['Expires'] && new Date(vr['Expires']) < new Date()) {
+        setStatus('error');
+        setErrorMsg('This viewing room is no longer available. Contact diego@diez.gallery for current works.');
+        return;
+      }
+
       const artworkIds = vr['Artworks'] || [];
       if (!artworkIds.length) { setStatus('error'); setErrorMsg('This viewing room has no artworks yet.'); return; }
 
