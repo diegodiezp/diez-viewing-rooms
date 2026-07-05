@@ -9,6 +9,22 @@ const ALLOWED_TABLES = [
   "tbl3fHryX8bPSYMyN", // Artists
 ];
 
+// Only the fields the frontend actually renders are ever returned. This is
+// enforced server-side: whatever the client sends as fields[] is ignored.
+// Internal fields (costs, collector notes, locations, ...) can never leave
+// Airtable through this proxy, even for records the caller can address.
+const ALLOWED_FIELDS = {
+  "tbl8EUvqiOLudNvjv": [
+    "Name", "Dates", "Booth", "Introduction", "Artworks",
+    "Attachments", "Installation Views", "Expires", "Private", "URL slug",
+  ],
+  "tblK8xDtKmakHWt6k": [
+    "Title", "Year", "Info (Backup)", "Status",
+    "Price €", "Price", "Artist name", "Artist Index", "Details",
+  ],
+  "tbl3fHryX8bPSYMyN": ["Name"],
+};
+
 // Only these filterByFormula shapes are allowed through the proxy. The
 // frontend only ever sends a slug lookup or a RECORD_ID() OR-chain; anything
 // else (formula injection via a crafted slug, probing other fields) is
@@ -26,7 +42,7 @@ module.exports = async function handler(req, res) {
   const token = process.env.AIRTABLE_PAT;
   if (!token) return res.status(500).json({ error: "AIRTABLE_PAT not configured" });
 
-  const { path, ...queryParams } = req.query;
+  const { path } = req.query;
   if (!path) return res.status(400).json({ error: "Missing path parameter" });
 
   // Block access to tables not in the whitelist
@@ -34,17 +50,27 @@ module.exports = async function handler(req, res) {
     return res.status(403).json({ error: "Access denied" });
   }
 
-  const formula = queryParams.filterByFormula;
-  if (formula && !ALLOWED_FORMULAS.some((re) => re.test(formula))) {
+  // A formula is now MANDATORY. Without this, a bare request would dump the
+  // whole table (and Airtable's offset param would paginate the entire base).
+  const formula = req.query.filterByFormula;
+  if (!formula || !ALLOWED_FORMULAS.some((re) => re.test(formula))) {
     return res.status(400).json({ error: "Invalid filter" });
   }
 
+  // Rebuild the query string from scratch. Only known-safe params survive;
+  // everything else the client sent (offset, view, sort, fields, ...) is
+  // dropped on the floor.
   const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(queryParams)) {
-    if (value) params.set(key, value);
+  params.set("filterByFormula", formula);
+
+  const maxRecords = parseInt(req.query.maxRecords || "100", 10);
+  params.set("maxRecords", String(Math.min(Math.max(maxRecords, 1), 100)));
+
+  for (const field of ALLOWED_FIELDS[path]) {
+    params.append("fields[]", field);
   }
-  const qs = params.toString();
-  const url = "https://api.airtable.com/v0/" + BASE_ID + "/" + path + (qs ? "?" + qs : "");
+
+  const url = "https://api.airtable.com/v0/" + BASE_ID + "/" + path + "?" + params.toString();
 
   try {
     const atRes = await fetch(url, {
