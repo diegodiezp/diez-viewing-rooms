@@ -674,8 +674,19 @@ function DetailSplit({
     visible: false
   });
   const [mobileLightbox, setMobileLightbox] = useState(false);
+  const [fullLoaded, setFullLoaded] = useState(false);
   const imgRef = React.useRef(null);
   const touchStart = useRef(null);
+
+  // Blur-up: show the already-cached large version immediately, swap to the
+  // full-res version once it has finished loading in the background.
+  useEffect(() => {
+    setFullLoaded(false);
+    if (detailIndex !== -1) return; // detail images: keep current behavior
+    const img = new Image();
+    img.onload = () => setFullLoaded(true);
+    img.src = work.imageUrlFull;
+  }, [workIdx, detailIndex]);
 
   // ESC key disables zoom mode
   useEffect(() => {
@@ -694,7 +705,7 @@ function DetailSplit({
   }, [workIdx]);
   const hasDetails = work.detailUrls && work.detailUrls.length > 0;
   const totalImages = hasDetails ? 1 + work.detailUrls.length : 1;
-  const currentSrc = detailIndex === -1 ? work.imageUrlFull || work.imageUrl : work.detailUrls[detailIndex];
+  const currentSrc = detailIndex === -1 ? fullLoaded ? work.imageUrlFull : work.imageUrl : work.detailUrls[detailIndex];
   const currentLabel = detailIndex === -1 ? hasDetails ? 'Click to see detail' : null : detailIndex < work.detailUrls.length - 1 ? 'Click for next detail' : 'Click to see full view';
 
   // On Hold logic mirrors the landing row.
