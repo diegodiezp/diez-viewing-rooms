@@ -37,6 +37,25 @@ module.exports = async function handler(req, res) {
         const rec = data.records && data.records[0];
         if (rec) {
           const f = rec.fields;
+
+          const expired = f["Expires"] && new Date(f["Expires"]) < new Date();
+
+          if (f["Private"] || expired) {
+            html = html.replace(
+              '<meta property="og:type"',
+              '<meta name="robots" content="noindex, nofollow">\n<meta property="og:type"'
+            );
+          }
+
+          // Expired rooms are no longer available, so skip the rest of the
+          // OG enrichment (title/description/image would only advertise a
+          // room visitors can no longer open).
+          if (expired) {
+            res.setHeader("Content-Type", "text/html; charset=utf-8");
+            res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
+            return res.status(200).send(html);
+          }
+
           const title = escapeHtml((f["Name"] || "Viewing Room") + " — diez");
           const rawDesc = String(f["Introduction"] || "Contemporary art — Amsterdam")
             .replace(/\s+/g, " ")
