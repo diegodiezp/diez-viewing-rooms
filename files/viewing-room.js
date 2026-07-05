@@ -268,6 +268,7 @@ function Lightbox({
       maxHeight: '90vh',
       objectFit: 'contain',
       display: 'block',
+      touchAction: 'pinch-zoom',
       animation: 'fadeIn 0.25s ease both'
     }
   })), idx > 0 && /*#__PURE__*/React.createElement("button", {
@@ -672,7 +673,9 @@ function DetailSplit({
     y: 0,
     visible: false
   });
+  const [mobileLightbox, setMobileLightbox] = useState(false);
   const imgRef = React.useRef(null);
+  const touchStart = useRef(null);
 
   // ESC key disables zoom mode
   useEffect(() => {
@@ -703,7 +706,18 @@ function DetailSplit({
     setDetailIndex(prev => prev < work.detailUrls.length - 1 ? prev + 1 : -1);
   }
   const stackLayout = isMobile || isTablet;
-  return /*#__PURE__*/React.createElement("div", {
+  const mobileLightboxImages = hasDetails ? [{
+    url: work.imageUrlFull || work.imageUrl
+  }, ...work.detailUrls.map(u => ({
+    url: u
+  }))] : [{
+    url: work.imageUrlFull || work.imageUrl
+  }];
+  return /*#__PURE__*/React.createElement(React.Fragment, null, mobileLightbox && /*#__PURE__*/React.createElement(Lightbox, {
+    images: mobileLightboxImages,
+    startIndex: 0,
+    onClose: () => setMobileLightbox(false)
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       height: '100vh',
       display: 'flex',
@@ -764,7 +778,22 @@ function DetailSplit({
       padding: '0',
       position: 'relative',
       overflow: stackLayout ? 'visible' : 'hidden'
-    }
+    },
+    onTouchStart: stackLayout ? e => {
+      touchStart.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY
+      };
+    } : undefined,
+    onTouchEnd: stackLayout ? e => {
+      if (!touchStart.current) return;
+      const dx = e.changedTouches[0].clientX - touchStart.current.x;
+      const dy = e.changedTouches[0].clientY - touchStart.current.y;
+      touchStart.current = null;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        if (dx < 0) onNext();else onPrev();
+      }
+    } : undefined
   }, work.imageUrl ? /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
@@ -840,7 +869,26 @@ function DetailSplit({
       textTransform: 'uppercase',
       color: '#999999'
     }
-  }, currentLabel, totalImages > 2 ? ` (${detailIndex + 2}/${totalImages})` : ''), !stackLayout && /*#__PURE__*/React.createElement("button", {
+  }, currentLabel, totalImages > 2 ? ` (${detailIndex + 2}/${totalImages})` : ''), stackLayout && /*#__PURE__*/React.createElement("button", {
+    onClick: e => {
+      e.stopPropagation();
+      setMobileLightbox(true);
+    },
+    style: {
+      marginTop: 8,
+      background: 'none',
+      border: 'none',
+      padding: 0,
+      fontSize: 9,
+      letterSpacing: '0.1em',
+      textTransform: 'uppercase',
+      color: '#666666',
+      textDecoration: 'underline',
+      textUnderlineOffset: 3,
+      cursor: 'pointer',
+      fontFamily: "'Replica', sans-serif"
+    }
+  }, "View full resolution"), !stackLayout && /*#__PURE__*/React.createElement("button", {
     onClick: e => {
       e.stopPropagation();
       setZoomActive(z => !z);
@@ -1027,7 +1075,7 @@ function DetailSplit({
       height: '100%',
       background: '#DDDDDD'
     }
-  })))))));
+  }))))))));
 }
 
 // ── LOADING / ERROR ───────────────────────────────────────────────────────────
