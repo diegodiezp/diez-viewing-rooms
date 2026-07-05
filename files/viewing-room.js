@@ -511,7 +511,7 @@ function Landing({
       color: '#333333'
     }
   }, /*#__PURE__*/React.createElement("a", {
-    href: "https://t.diez.gallery/diez-newsletter.html",
+    href: "https://airtable.com/appkTmFvjmDLOQS4p/pageOJZwubCWxkwCs/form",
     target: "_blank",
     rel: "noopener noreferrer",
     style: {
@@ -1235,8 +1235,8 @@ function App() {
           artist: artistName,
           year: f['Year'] || '',
           info: f['Info (Backup)'] || '',
-          imageUrl: f['Image URL'] || '/api/image?id=' + aw.id + '&size=large',
-          imageUrlFull: f['Image URL'] || '/api/image?id=' + aw.id + '&size=full',
+          imageUrl: '/api/image?id=' + aw.id + '&size=large',
+          imageUrlFull: '/api/image?id=' + aw.id + '&size=full',
           detailUrls: f['Details'] ? Array.from({
             length: f['Details'].length
           }, (_, i) => '/api/image?id=' + aw.id + '&field=Details&index=' + i + '&size=full') : [],
