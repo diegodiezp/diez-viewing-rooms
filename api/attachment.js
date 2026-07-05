@@ -41,7 +41,15 @@ module.exports = async function handler(req, res) {
     }
 
     const file = attachments[parseInt(req.query.index || "0", 10)] || attachments[0];
-    const fileRes = await fetch(file.url);
+
+    // size: small | large | full | original. Default original (PDFs have no thumbnails).
+    const size = (req.query.size || "original").toLowerCase();
+    let targetUrl = file.url;
+    if (size !== "original" && file.thumbnails && file.thumbnails[size]) {
+      targetUrl = file.thumbnails[size].url;
+    }
+
+    const fileRes = await fetch(targetUrl);
 
     if (!fileRes.ok) return res.status(500).json({ error: "Failed to fetch file" });
 
