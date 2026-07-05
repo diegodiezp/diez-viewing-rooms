@@ -236,7 +236,7 @@ function InstallationViews({ images, isMobile }) {
           gap: isMobile ? '2px' : '3px',
         }}>
           {images.map((img, i) => (
-            <div key={i} onClick={() => setLightbox(i)}
+            <div key={i} onClick={() => { setLightbox(i); trackEngagement('Lightbox Open', null, 'Installation view ' + (i + 1)); }}
               style={{ overflow:'hidden', cursor:'pointer', background:'#F5F5F5', aspectRatio:'4/3' }}>
               <img src={img.url} alt={'Installation view ' + (i+1)} loading="lazy"
                 style={{
@@ -279,6 +279,7 @@ function Landing({ room, works, onSelect }) {
           <div style={{ marginTop:12, display:'flex', flexDirection:'column', gap:6 }}>
             {room.files && room.files.map((file, i) => (
               <a key={i} href={file.url} target="_blank" rel="noopener noreferrer" download={file.filename}
+                onClick={() => trackEngagement('PDF Download', null, file.filename)}
                 style={{ display:'inline-block', fontSize:12,
                   letterSpacing:'0.08em', textTransform:'uppercase', color:'#666666',
                   textDecoration:'none', transition:'color 0.15s' }}
