@@ -188,7 +188,7 @@ function Lightbox({ images, startIndex, onClose }) {
       }}>
         <img key={idx} src={images[idx].fullUrl || images[idx].url} alt={'Installation view ' + (idx+1)}
           style={{ maxWidth:'100%', maxHeight:'90vh', objectFit:'contain', display:'block',
-            animation:'fadeIn 0.25s ease both' }}/>
+            touchAction:'pinch-zoom', animation:'fadeIn 0.25s ease both' }}/>
       </div>
       {/* Prev */}
       {idx > 0 && (
@@ -393,7 +393,9 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
   const [detailIndex, setDetailIndex] = useState(-1); // -1 = main image, 0+ = detail images
   const [zoomActive, setZoomActive] = useState(false);
   const [zoomPos, setZoomPos] = useState({ x: 0, y: 0, visible: false });
+  const [mobileLightbox, setMobileLightbox] = useState(false);
   const imgRef = React.useRef(null);
+  const touchStart = useRef(null);
 
   // ESC key disables zoom mode
   useEffect(() => {
@@ -425,7 +427,15 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
 
   const stackLayout = isMobile || isTablet;
 
+  const mobileLightboxImages = hasDetails
+    ? [{ url: work.imageUrlFull || work.imageUrl }, ...work.detailUrls.map(u => ({ url: u }))]
+    : [{ url: work.imageUrlFull || work.imageUrl }];
+
   return (
+    <>
+    {mobileLightbox && (
+      <Lightbox images={mobileLightboxImages} startIndex={0} onClose={() => setMobileLightbox(false)} />
+    )}
     <div style={{ height:'100vh', display:'flex', flexDirection:'column', overflow:'hidden', background:'#FFFFFF' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
         padding: isMobile ? '10px 16px' : '14px 32px', borderBottom:'1px solid #000000', flexShrink:0 }}>
@@ -442,7 +452,17 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
         {/* Image panel */}
         <div style={{ flex: stackLayout ? 'none' : '0 0 60%', background:'#FFFFFF',
           display:'flex', alignItems:'center', justifyContent:'center',
-          padding:'0', position:'relative', overflow: stackLayout ? 'visible' : 'hidden' }}>
+          padding:'0', position:'relative', overflow: stackLayout ? 'visible' : 'hidden' }}
+          onTouchStart={stackLayout ? (e => { touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }) : undefined}
+          onTouchEnd={stackLayout ? (e => {
+            if (!touchStart.current) return;
+            const dx = e.changedTouches[0].clientX - touchStart.current.x;
+            const dy = e.changedTouches[0].clientY - touchStart.current.y;
+            touchStart.current = null;
+            if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+              if (dx < 0) onNext(); else onPrev();
+            }
+          }) : undefined}>
           {work.imageUrl ? (
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
               width:'100%',
@@ -487,6 +507,15 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
                 <div style={{ marginTop:8, fontSize:9, letterSpacing:'0.1em', textTransform:'uppercase', color:'#999999' }}>
                   {currentLabel}{totalImages > 2 ? ` (${detailIndex + 2}/${totalImages})` : ''}
                 </div>
+              )}
+              {stackLayout && (
+                <button onClick={(e) => { e.stopPropagation(); setMobileLightbox(true); }}
+                  style={{ marginTop:8, background:'none', border:'none', padding:0,
+                    fontSize:9, letterSpacing:'0.1em', textTransform:'uppercase', color:'#666666',
+                    textDecoration:'underline', textUnderlineOffset:3, cursor:'pointer',
+                    fontFamily:"'Replica', sans-serif" }}>
+                  View full resolution
+                </button>
               )}
               {!stackLayout && (
                 <button onClick={(e) => { e.stopPropagation(); setZoomActive(z => !z); }}
@@ -576,6 +605,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
         </div>
       </div>
     </div>
+    </>
   );
 }
 
