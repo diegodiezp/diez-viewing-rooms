@@ -98,26 +98,47 @@ function InquireBtn({ small, artist, title, artworkId, onHold }) {
   const subjectPrefix = onHold ? 'Waitlist: ' : 'Inquiry: ';
   const subject = encodeURIComponent(subjectPrefix + artist + ' — ' + title);
   const label = onHold ? 'Join waitlist' : 'Inquire';
+
+  const workUrl = window.location.origin + window.location.pathname + '?work=' + artworkId;
+  const body = encodeURIComponent(
+    'Hello Diego,\n\nI would like to inquire about:\n' +
+    artist + ', ' + title + '\n' + workUrl + '\n\n'
+  );
+  const waText = encodeURIComponent(
+    'Hello Diego, I ' + (onHold ? 'would like to join the waitlist for' : 'am interested in')
+    + ' ' + artist + ', ' + title + ' ' + workUrl
+  );
+  const waHref = 'https://wa.me/31633261845?text=' + waText;
+
   return (
-    <a href={`mailto:${EMAIL}?subject=${subject}`}
-      onMouseEnter={() => setH(true)}
-      onMouseLeave={() => setH(false)}
-      onClick={e => {
-        e.stopPropagation();
-        trackEngagement('Inquire Click', artworkId, title);
-      }}
-      style={{
-        display: 'inline-block',
-        background: h ? '#000000' : 'transparent',
-        color: h ? '#FFFFFF' : '#000000',
-        border: '1px solid #000000',
-        padding: small ? '6px 14px' : '9px 22px',
-        fontSize: small ? 10 : 11,
-        letterSpacing: '0.12em', textTransform: 'uppercase',
-        fontFamily: "'Replica', sans-serif", fontWeight: 400,
-        cursor: 'pointer', borderRadius: 1, transition: 'all 0.18s',
-        textDecoration: 'none', whiteSpace: 'nowrap',
-      }}>{label}</a>
+    <div style={{ display: 'inline-flex', alignItems: 'center' }}>
+      <a href={`mailto:${EMAIL}?subject=${subject}&body=${body}`}
+        onMouseEnter={() => setH(true)}
+        onMouseLeave={() => setH(false)}
+        onClick={e => {
+          e.stopPropagation();
+          trackEngagement('Inquire Click', artworkId, title);
+        }}
+        style={{
+          display: 'inline-block',
+          background: h ? '#000000' : 'transparent',
+          color: h ? '#FFFFFF' : '#000000',
+          border: '1px solid #000000',
+          padding: small ? '6px 14px' : '9px 22px',
+          fontSize: small ? 10 : 11,
+          letterSpacing: '0.12em', textTransform: 'uppercase',
+          fontFamily: "'Replica', sans-serif", fontWeight: 400,
+          cursor: 'pointer', borderRadius: 1, transition: 'all 0.18s',
+          textDecoration: 'none', whiteSpace: 'nowrap',
+        }}>{label}</a>
+      <a href={waHref} target="_blank" rel="noopener noreferrer"
+        onClick={e => { e.stopPropagation(); trackEngagement('WhatsApp Click', artworkId, title); }}
+        style={{ marginLeft: 12, fontSize: small ? 10 : 11, letterSpacing: '0.12em',
+          textTransform: 'uppercase', color: '#666666', textDecoration: 'underline',
+          textUnderlineOffset: 3, fontFamily: "'Replica', sans-serif" }}>
+        WhatsApp
+      </a>
+    </div>
   );
 }
 
