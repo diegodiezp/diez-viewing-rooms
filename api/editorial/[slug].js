@@ -49,13 +49,30 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'Not available' });
     }
 
-    // 2. Bloques ordenados
-    const blocksData = await at(
-      `${T_BLOCKS}?filterByFormula=${encodeURIComponent(
-        `FIND('${room.id}', ARRAYJOIN({Room}))`
-      )}&sort%5B0%5D%5Bfield%5D=Order&sort%5B0%5D%5Bdirection%5D=asc&pageSize=100`
-    );
-    const blocks = blocksData.records || [];
+    // 2. Bloques: via el enlace inverso en Editorial Rooms
+    // (ARRAYJOIN de linked records devuelve nombres, no IDs, asi que
+    //  pedimos los bloques por RECORD_ID usando la lista del reverse link)
+    const blockIds =
+      room.fields['Editorial Blocks'] ||
+      Object.entries(room.fields).find(
+        ([k, v]) =>
+          k !== 'Artist' &&
+          Array.isArray(v) &&
+          v.length &&
+          typeof v[0] === 'string' &&
+          v[0].startsWith('rec')
+      )?.[1] ||
+      [];
+    let blocks = [];
+    if (blockIds.length) {
+      const bf = `OR(${blockIds.map((id) => `RECORD_ID()='${id}'`).join(',')})`;
+      const blocksData = await at(
+        `${T_BLOCKS}?filterByFormula=${encodeURIComponent(bf)}&pageSize=100`
+      );
+      blocks = (blocksData.records || []).sort(
+        (a, b) => (a.fields.Order || 0) - (b.fields.Order || 0)
+      );
+    }
 
     // 3. Artworks enlazados, un solo fetch
     const artIds = [...new Set(blocks.flatMap((b) => b.fields.Artwork || []))];
