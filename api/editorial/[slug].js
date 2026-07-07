@@ -1,57 +1,111 @@
+// api/editorial/[slug].js
+// Editorial Rooms endpoint — Diez viewing rooms
+// GET /api/editorial/waelder-1993          -> room Live
+// GET /api/editorial/waelder-1993?preview=1 -> room en Draft (para revisar antes de publicar)
+
+const BASE = 'appkTmFvjmDLOQS4p';
+const T_ROOMS = 'tblAV0zH4VsmLTaJN';   // Editorial Rooms
+const T_BLOCKS = 'tblUkJCp25urtPePV';  // Editorial Blocks
+const T_ART = 'tblK8xDtKmakHWt6k';     // Artworks
+
+// Nombres de campo de la tabla Artworks.
+// Si alguno difiere en tu base, corrígelo AQUÍ y en ningún otro sitio.
+const ART_FIELDS = {
+  title: 'Title',
+  year: 'Year',
+  technique: 'Technique',
+  height: 'Height (cm)',
+  width: 'Width (cm)',
+  price: 'Price',
+  image: 'Image',
+};
+
 export default async function handler(req, res) {
-  const { slug } = req.query;
-  const BASE = 'appkTmFvjmDLOQS4p';
-  const KEY = process.env.AIRTABLE_API_KEY;
-  const H = { Authorization: `Bearer ${KEY}` };
-  const at = (path) =>
-    fetch(`https://api.airtable.com/v0/${BASE}/${path}`, { headers: H })
-      .then(r => r.json());
-
-  // 1. Room por slug
-  const roomData = await at(
-    `tblAV0zH4VsmLTaJN?filterByFormula=${encodeURIComponent(
-      `{URL slug}='${slug}'`
-    )}&maxRecords=1`
-  );
-  const room = roomData.records?.[0];
-  if (!room) return res.status(404).json({ error: 'Not found' });
-  if (room.fields.Status !== 'Live' && req.query.preview !== '1')
-    return res.status(404).json({ error: 'Not live' });
-
-  // 2. Bloques de la room, ordenados
-  const blocksData = await at(
-    `tblUkJCp25urtPePV?filterByFormula=${encodeURIComponent(
-      `FIND('${room.id}', ARRAYJOIN({Room}))`
-    )}&sort%5B0%5D%5Bfield%5D=Order&sort%5B0%5D%5Bdirection%5D=asc`
-  );
-  const blocks = blocksData.records || [];
-
-  // 3. Resolver artworks enlazados en un solo fetch
-  const artIds = blocks.flatMap(b => b.fields.Artwork || []);
-  let artworks = {};
-  if (artIds.length) {
-    const formula = `OR(${artIds.map(id => `RECORD_ID()='${id}'`).join(',')})`;
-    const artData = await at(
-      `tblK8xDtKmakHWt6k?filterByFormula=${encodeURIComponent(formula)}`
-    );
-    for (const a of artData.records || []) artworks[a.id] = a.fields;
+  const { slug, preview } = req.query;
+  if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
+    return res.status(400).json({ error: 'Invalid slug' });
   }
 
-  // 4. Payload limpio para el frontend
-  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
-  res.json({
-    title: room.fields.Name,
-    subtitle: room.fields.Subtitle || '',
-    meta: room.fields['Meta description'] || '',
-    blocks: blocks.map(b => ({
-      type: b.fields['Block type'],
-      text: b.fields.Text || '',
-      caption: b.fields.Caption || '',
-      image: b.fields.Image?.[0]?.url || null,
-      image2: b.fields['Image 2']?.[0]?.url || null,
-      videoUrl: b.fields['Video URL'] || null,
-      showPrice: !!b.fields['Show price'],
-      artwork: b.fields.Artwork?.[0] ? artworks[b.fields.Artwork[0]] : null,
-    })),
-  });
+  const at = async (path) => {
+    const r = await fetch(`https://api.airtable.com/v0/${BASE}/${path}`, {
+      headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` },
+    });
+    if (!r.ok) throw new Error(`Airtable ${r.status}`);
+    return r.json();
+  };
+
+  try {
+    // 1. Room por slug
+    const roomData = await at(
+      `${T_ROOMS}?filterByFormula=${encodeURIComponent(`{URL slug}='${slug}'`)}&maxRecords=1`
+    );
+    const room = roomData.records?.[0];
+    if (!room) return res.status(404).json({ error: 'Not found' });
+
+    const status = room.fields.Status;
+    const expired =
+      room.fields.Expires && new Date(room.fields.Expires) < new Date();
+    if ((status !== 'Live' || expired) && preview !== '1') {
+      return res.status(404).json({ error: 'Not available' });
+    }
+
+    // 2. Bloques ordenados
+    const blocksData = await at(
+      `${T_BLOCKS}?filterByFormula=${encodeURIComponent(
+        `FIND('${room.id}', ARRAYJOIN({Room}))`
+      )}&sort%5B0%5D%5Bfield%5D=Order&sort%5B0%5D%5Bdirection%5D=asc&pageSize=100`
+    );
+    const blocks = blocksData.records || [];
+
+    // 3. Artworks enlazados, un solo fetch
+    const artIds = [...new Set(blocks.flatMap((b) => b.fields.Artwork || []))];
+    const artworks = {};
+    if (artIds.length) {
+      const formula = `OR(${artIds.map((id) => `RECORD_ID()='${id}'`).join(',')})`;
+      const artData = await at(
+        `${T_ART}?filterByFormula=${encodeURIComponent(formula)}`
+      );
+      for (const a of artData.records || []) artworks[a.id] = a.fields;
+    }
+
+    // 4. Ficha de obra normalizada
+    const F = ART_FIELDS;
+    const artworkPayload = (id, showPrice) => {
+      const f = artworks[id];
+      if (!f) return null;
+      const dims =
+        f[F.height] && f[F.width] ? `${f[F.height]} × ${f[F.width]} cm` : '';
+      return {
+        title: f[F.title] || '',
+        year: f[F.year] || '',
+        technique: f[F.technique] || '',
+        dims,
+        price: showPrice && f[F.price] ? `€ ${Number(f[F.price]).toLocaleString('nl-NL')}` : null,
+        image: f[F.image]?.[0]?.url || null,
+      };
+    };
+
+    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+    res.setHeader('Access-Control-Allow-Origin', 'https://rooms.diez.gallery');
+
+    return res.json({
+      title: room.fields.Name || '',
+      subtitle: room.fields.Subtitle || '',
+      meta: room.fields['Meta description'] || '',
+      blocks: blocks.map((b) => ({
+        type: b.fields['Block type'],
+        text: b.fields.Text || '',
+        caption: b.fields.Caption || '',
+        image: b.fields.Image?.[0]?.url || null,
+        image2: b.fields['Image 2']?.[0]?.url || null,
+        videoUrl: b.fields['Video URL'] || null,
+        artwork: b.fields.Artwork?.[0]
+          ? artworkPayload(b.fields.Artwork[0], !!b.fields['Show price'])
+          : null,
+      })),
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
 }
