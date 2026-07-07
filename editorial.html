@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diez — Editorial</title>
+<style>
+  /* ============================================================
+     DIEZ EDITORIAL ROOMS — /e/[slug]
+     PASO PENDIENTE: pegar aquí las @font-face de Replica
+     (copiar tal cual de la plantilla de las grid rooms).
+     ============================================================ */
+
+  :root {
+    --ink: #111111;
+    --paper: #ffffff;
+    --mute: #8c8c8c;
+    --hairline: #e3e3e3;
+    --measure: 34rem;
+    --pad: clamp(1.25rem, 4vw, 3rem);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: "Replica", "Neue Haas Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 1rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #dash {
+    position: fixed; top: 0; left: 0;
+    height: 2px; width: 0%;
+    background: var(--ink);
+    z-index: 100;
+  }
+
+  header.bar {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 1.1rem var(--pad);
+    z-index: 90;
+    mix-blend-mode: difference; color: #fff;
+    font-size: .8rem; letter-spacing: .04em;
+  }
+  header.bar a { color: inherit; text-decoration: none; }
+  header.bar .wordmark { text-transform: uppercase; }
+
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity .8s ease, transform .8s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+
+  section.hero {
+    min-height: 100svh;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: var(--pad);
+    position: relative; overflow: hidden;
+  }
+  .hero .bg { position: absolute; inset: 0; z-index: 0; background: #f4f4f4; }
+  .hero .bg img { width: 100%; height: 100%; object-fit: cover; }
+  .hero h1 {
+    position: relative; z-index: 1;
+    font-weight: 400;
+    font-size: clamp(2.6rem, 9vw, 7.5rem);
+    line-height: 1.02; letter-spacing: -0.015em;
+    color: #fff; mix-blend-mode: difference;
+  }
+  .hero h1 .open-dash {
+    display: inline-block;
+    width: .9em; height: .055em;
+    background: currentColor;
+    vertical-align: .22em; margin-left: .18em;
+    transform-origin: left center;
+    animation: growdash 3.2s cubic-bezier(.2,.6,.2,1) .4s both;
+  }
+  @keyframes growdash { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  .hero .subtitle {
+    position: relative; z-index: 1;
+    margin-top: 1rem;
+    font-size: .9rem; letter-spacing: .03em;
+    color: #fff; mix-blend-mode: difference;
+  }
+
+  section.text {
+    max-width: var(--measure);
+    margin: 0 auto;
+    padding: clamp(5rem, 12vh, 9rem) var(--pad);
+    font-size: 1.05rem;
+  }
+  section.text p + p { margin-top: 1.4em; }
+
+  section.quote {
+    max-width: 56rem; margin: 0 auto;
+    padding: clamp(5rem, 14vh, 10rem) var(--pad);
+    font-size: clamp(1.5rem, 3.4vw, 2.4rem);
+    line-height: 1.28; letter-spacing: -0.01em;
+    text-indent: -0.45em;
+  }
+  section.quote::before { content: "\201C"; }
+  section.quote::after  { content: "\201D"; }
+  section.quote .attr {
+    display: block; text-indent: 0; margin-top: 1.6rem;
+    font-size: .85rem; color: var(--mute); letter-spacing: .03em;
+  }
+
+  section.installation { padding: clamp(3rem, 8vh, 6rem) 0; }
+  section.installation img { width: 100%; height: auto; display: block; }
+  section.installation figcaption {
+    padding: .8rem var(--pad) 0;
+    font-size: .8rem; color: var(--mute); letter-spacing: .03em;
+  }
+
+  section.artwork {
+    padding: clamp(4rem, 10vh, 8rem) var(--pad);
+    display: flex; flex-direction: column; align-items: center;
+  }
+  section.artwork figure { max-width: min(720px, 100%); width: 100%; }
+  section.artwork img {
+    width: 100%; height: auto; display: block;
+    box-shadow: 0 1px 30px rgba(0,0,0,.06);
+  }
+  section.artwork figcaption {
+    margin-top: 1.4rem;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 2rem;
+    font-size: .85rem; line-height: 1.5;
+  }
+  .caption-meta .t { font-style: italic; }
+  .caption-meta .d, .caption-meta .p { color: var(--mute); }
+  .caption-meta .p { color: var(--ink); margin-top: .3rem; }
+  .inquire {
+    flex: none;
+    font: inherit; font-size: .8rem;
+    letter-spacing: .05em; text-transform: uppercase;
+    background: none; border: 1px solid var(--ink); color: var(--ink);
+    padding: .55rem 1.1rem; cursor: pointer;
+    transition: background .2s, color .2s;
+  }
+  .inquire:hover, .inquire:focus-visible { background: var(--ink); color: var(--paper); }
+  .inquire:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+  section.diptych {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: var(--pad);
+    padding: clamp(3rem, 8vh, 6rem) var(--pad);
+  }
+  section.diptych img { width: 100%; height: auto; display: block; }
+  @media (max-width: 640px) { section.diptych { grid-template-columns: 1fr; } }
+
+  section.video { padding: clamp(3rem, 8vh, 6rem) var(--pad); }
+  section.video .frame { position: relative; width: 100%; aspect-ratio: 16/9; background: #f2f2f2; }
+  section.video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
+  footer {
+    border-top: 1px solid var(--hairline);
+    padding: 2.2rem var(--pad) 3rem;
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+    font-size: .8rem; color: var(--mute); letter-spacing: .03em;
+  }
+  footer a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--hairline); }
+
+  .state {
+    min-height: 60vh;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--mute); font-size: .9rem; letter-spacing: .03em;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .hero h1 .open-dash { animation: none; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+
+<div id="dash" aria-hidden="true"></div>
+
+<header class="bar">
+  <a class="wordmark" href="https://diez.gallery">Diez</a>
+  <span>Editorial</span>
+</header>
+
+<main id="room"><div class="state">Loading</div></main>
+
+<footer>
+  <span>Diez, Gibraltarstraat 74-B, Amsterdam</span>
+  <a href="https://diez.gallery">diez.gallery</a>
+</footer>
+
+<script>
+(async function () {
+  const mount = document.getElementById('room');
+  const slug = location.pathname.split('/').filter(Boolean).pop();
+
+  let data;
+  try {
+    const r = await fetch(`/api/editorial/${slug}${location.search}`);
+    if (!r.ok) throw new Error(r.status);
+    data = await r.json();
+  } catch (e) {
+    mount.innerHTML = '<div class="state">This room is not available.</div>';
+    return;
+  }
+
+  document.title = `${data.title} | Diez`;
+
+  /* ---------------- renderers ---------------- */
+  const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const paras = (t) => t.split(/\n\n+/).map((p) => `<p>${esc(p).replace(/\n/g,'<br>')}</p>`).join('');
+
+  const renderers = {
+    Hero(b) {
+      // El título termina con el guion animado: quitamos un "–" final del texto si existe
+      const raw = (b.text || data.title).replace(/\s*[–-]\s*$/,'');
+      const title = esc(raw).replace(/\n/g,'<br>');
+      const bg = b.image ? `<div class="bg"><img src="${b.image}" alt=""></div>` : '<div class="bg"></div>';
+      const sub = data.subtitle ? `<p class="subtitle">${esc(data.subtitle)}</p>` : '';
+      return `<section class="hero">${bg}<h1>${title}<span class="open-dash"></span></h1>${sub}</section>`;
+    },
+    Text(b) { return `<section class="text reveal">${paras(b.text)}</section>`; },
+    Quote(b) { return `<section class="quote reveal">${esc(b.text)}<span class="attr">Ian Waelder</span></section>`; },
+    Installation(b) {
+      if (!b.image) return '';
+      return `<section class="installation reveal"><figure>
+        <img src="${b.image}" alt="${esc(b.caption)}" loading="lazy">
+        <figcaption>${esc(b.caption)}</figcaption></figure></section>`;
+    },
+    Artwork(b) {
+      const a = b.artwork;
+      if (!a) return '';
+      const img = a.image ? `<img src="${a.image}" alt="${esc(a.title)}" loading="lazy">` : '';
+      const line2 = [a.technique, a.dims].filter(Boolean).join(', ');
+      const price = a.price ? `<div class="p">${esc(a.price)}</div>` : '';
+      return `<section class="artwork reveal" data-title="${esc(a.title)}"><figure>
+        ${img}
+        <figcaption>
+          <div class="caption-meta">
+            <div><span class="t">${esc(a.title)}</span>${a.year ? ', ' + esc(a.year) : ''}</div>
+            <div class="d">${esc(line2)}</div>
+            ${price}
+          </div>
+          <button class="inquire" data-title="${esc(a.title)}">Inquire</button>
+        </figcaption></figure></section>`;
+    },
+    Diptych(b) {
+      return `<section class="diptych reveal">
+        <figure>${b.image ? `<img src="${b.image}" alt="" loading="lazy">` : ''}</figure>
+        <figure>${b.image2 ? `<img src="${b.image2}" alt="" loading="lazy">` : ''}</figure></section>`;
+    },
+    Video(b) {
+      if (!b.videoUrl) return '';
+      return `<section class="video reveal"><div class="frame">
+        <iframe src="${esc(b.videoUrl)}" allow="autoplay; fullscreen" title="Video"></iframe>
+      </div></section>`;
+    },
+  };
+
+  mount.innerHTML = data.blocks
+    .map((b) => (renderers[b.type] || (() => ''))(b))
+    .join('');
+
+  /* ---------------- dash de progreso: nunca se cierra ---------------- */
+  const dash = document.getElementById('dash');
+  addEventListener('scroll', () => {
+    const h = document.documentElement;
+    const p = h.scrollTop / (h.scrollHeight - h.clientHeight);
+    dash.style.width = Math.min(p, 1) * 96 + '%';
+  }, { passive: true });
+
+  /* ---------------- reveals ---------------- */
+  const io = new IntersectionObserver((es) => es.forEach((e) => {
+    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }), { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+
+  /* ---------------- inquire ----------------
+     PASO PENDIENTE: sustituir por el flujo de las grid rooms
+     (tracking de Inquire Click + WhatsApp/mail). Fallback: mailto. */
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.inquire');
+    if (!btn) return;
+    const subject = encodeURIComponent(`Inquiry: ${btn.dataset.title} — ${data.title}`);
+    location.href = `mailto:info@diez.gallery?subject=${subject}`;
+  });
+
+  /* ---------------- Artwork View tracking ----------------
+     PASO PENDIENTE: conectar al pipeline de eventos existente. */
+  const seen = new Set();
+  const viewIo = new IntersectionObserver((es) => es.forEach((e) => {
+    if (e.isIntersecting && !seen.has(e.target)) {
+      seen.add(e.target);
+      // trackEvent('Artwork View', e.target.dataset.title, slug);
+    }
+  }), { threshold: 0.5 });
+  document.querySelectorAll('section.artwork').forEach((el) => viewIo.observe(el));
+})();
+</script>
+</body>
+</html>
