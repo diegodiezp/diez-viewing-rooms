@@ -1,7 +1,7 @@
 {
   "rewrites": [
+    { "source": "/e/:slug", "destination": "/editorial.html" },
     { "source": "/:slug", "destination": "/api/room?vr=:slug" }
-    { "source": "/e/:slug", "destination": "/editorial.html" }
   ],
   "functions": {
     "api/room.js": { "includeFiles": "viewing-room.html" }
