@@ -15,12 +15,12 @@ const ALLOWED_TABLES = [
 // Airtable through this proxy, even for records the caller can address.
 const ALLOWED_FIELDS = {
   "tbl8EUvqiOLudNvjv": [
-    "Name", "Dates", "Booth", "Introduction", "Artworks",
+    "Name", "Start Date", "End Date", "Introduction", "Artworks",
     "Attachments", "Installation Views", "Expires", "Private", "URL slug",
   ],
   "tblK8xDtKmakHWt6k": [
     "Title", "Year", "Info (Backup)", "Status",
-    "Price €", "Price", "Artist name", "Artist Index", "Details",
+    "Price €", "Artist name", "Artist Index", "Details",
   ],
   "tbl3fHryX8bPSYMyN": ["Name"],
 };
