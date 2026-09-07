@@ -77,12 +77,15 @@ function useViewport() {
   return vp;
 }
 
-// Status indicator: three states — Available (green), On Hold (amber), Sold (grey).
+// Status indicator: four states — Available (green), On Hold (amber),
+// Sold (grey), Not Available (muted taupe — consigned, offered, or
+// explicitly marked unavailable in Airtable but not sold).
 function Dot({
   status,
   available
 }) {
   const onHold = status === 'On hold';
+  const sold = status === 'Sold';
   let color, dotColor, label;
   if (onHold) {
     color = '#8A7A4A';
@@ -92,10 +95,14 @@ function Dot({
     color = '#5A7A5A';
     dotColor = '#7AB07A';
     label = 'Available';
-  } else {
+  } else if (sold) {
     color = '#999999';
     dotColor = '#CCCCCC';
     label = 'Sold';
+  } else {
+    color = '#8A8072';
+    dotColor = '#BFB6A6';
+    label = 'Not Available';
   }
   return /*#__PURE__*/React.createElement("span", {
     style: {
@@ -553,10 +560,11 @@ function WorkRow({
   } = useViewport();
 
   // A work that is On Hold is not "available" for direct sale but should still
-  // show its price and a (waitlist) Inquire button.
+  // show its price and a (waitlist) Inquire button. Sold and Not Available
+  // works show neither.
   const onHold = work.status === 'On hold';
   const showInquire = work.available || onHold;
-  const showPrice = work.status !== 'Sold';
+  const showPrice = work.available || onHold;
   return /*#__PURE__*/React.createElement("div", {
     onClick: onSelect,
     onMouseEnter: () => setHov(true),
@@ -715,7 +723,7 @@ function DetailSplit({
   // On Hold logic mirrors the landing row.
   const onHold = work.status === 'On hold';
   const showInquire = work.available || onHold;
-  const showPrice = work.status !== 'Sold';
+  const showPrice = work.available || onHold;
   function cycleImage() {
     if (!hasDetails) return;
     setDetailIndex(prev => prev < work.detailUrls.length - 1 ? prev + 1 : -1);
@@ -1237,8 +1245,15 @@ function App() {
         const f = aw.fields;
         const artistLinks = f['Artist name'] || [];
         const artistName = artistLinks.map(id => artistMap[id] || 'Unknown').join(', ');
-        const status = f['Status'] || '';
-        const available = status !== 'Sold' && status !== 'On hold';
+        // Airtable's "Not available" option ships with a trailing space in
+        // the base ("Not available "), so trim before comparing. Blank
+        // Status is left as available (unset works keep prior behavior).
+        // "Not available", "Consigned" and "Offered" are all non-public
+        // states — anything not explicitly "Available" is unavailable
+        // unless it's the On hold / Sold statuses handled separately below.
+        const status = (f['Status'] || '').trim();
+        const nonPublic = status === 'Not available' || status === 'Consigned' || status === 'Offered';
+        const available = status !== 'Sold' && status !== 'On hold' && !nonPublic;
         const price = f['Price €'] || f['Price'] || null;
         return {
           id: aw.id,
