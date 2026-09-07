@@ -709,7 +709,12 @@ function App() {
         (aData.records || []).forEach(a => { artistMap[a.id] = a.fields['Name'] || 'Unknown'; });
       }
 
-      artworks.sort((a, b) => (a.fields['Artist Index'] || 0) - (b.fields['Artist Index'] || 0));
+      // Order is per-room, taken from the drag order of the "Artworks" linked
+      // field on this Viewing Room record — NOT from the Artworks table's
+      // "Artist Index" field, which is inventory catalog numbering and must
+      // stay independent of any single room's display order.
+      const roomOrder = new Map(artworkIds.map((id, i) => [id, i]));
+      artworks.sort((a, b) => (roomOrder.get(a.id) ?? 0) - (roomOrder.get(b.id) ?? 0));
 
       const mapped = artworks.map((aw) => {
         const f = aw.fields;
