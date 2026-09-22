@@ -44,6 +44,55 @@ function trackEngagement(event_type, artwork_id, artwork_title) {
   }
 }
 
+// Active-time tracking. Counts seconds only while the tab is visible AND the
+// visitor has interacted in the last 60 s, and reports the running TOTAL every
+// 15 s to diez-mail, which keeps one Email Events row per session up to date.
+const HEARTBEAT_URL = 'https://t.diez.gallery/api/ev/heartbeat';
+let activeTrackingStarted = false;
+
+function startActiveTimeTracking() {
+  if (!TRACKING_TOKEN || activeTrackingStarted || !navigator.sendBeacon) return;
+  activeTrackingStarted = true;
+
+  const SEND_EVERY_MS = 15000;
+  const IDLE_AFTER_MS = 60000;
+  const MIN_SECONDS = 5;      // shorter visits are bounces, never sent
+  const MAX_SECONDS = 3600;   // cap per session
+
+  const sessionId = crypto.randomUUID();
+  let seconds = 0;
+  let lastSent = 0;
+  let lastInput = Date.now();
+
+  ['mousemove', 'scroll', 'keydown', 'touchstart', 'click'].forEach(evt =>
+    window.addEventListener(evt, () => { lastInput = Date.now(); }, { passive: true, capture: true })
+  );
+
+  setInterval(() => {
+    if (document.visibilityState === 'visible'
+        && Date.now() - lastInput < IDLE_AFTER_MS
+        && seconds < MAX_SECONDS) seconds++;
+  }, 1000);
+
+  const send = () => {
+    if (seconds < MIN_SECONDS || seconds === lastSent) return;
+    lastSent = seconds;
+    const payload = JSON.stringify({ t: TRACKING_TOKEN, session_id: sessionId, active_seconds: seconds });
+    try {
+      // text/plain = no CORS preflight, and sendBeacon survives tab close
+      navigator.sendBeacon(HEARTBEAT_URL, new Blob([payload], { type: 'text/plain' }));
+    } catch (err) {
+      console.warn('Heartbeat failed:', err);
+    }
+  };
+
+  setInterval(send, SEND_EVERY_MS);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') send();
+  });
+  window.addEventListener('pagehide', send);
+}
+
 async function atFetch(tableId, qp = {}) {
   const parts = [PROXY + '?path=' + encodeURIComponent(tableId)];
   Object.entries(qp).forEach(([k, v]) => {
@@ -764,6 +813,7 @@ function App() {
       // Funnel entry point: log that this identified recipient opened the room.
       // Anonymous visitors (no ?t= in URL) are silently ignored by the helper.
       trackEngagement('Viewing Room Open');
+      startActiveTimeTracking();
 
       // Preload detail images in background
       mapped.forEach(w => {
