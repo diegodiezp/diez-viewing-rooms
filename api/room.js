@@ -88,9 +88,13 @@ module.exports = async function handler(req, res) {
               "$1summary_large_image$2"
             );
           } else {
-            const installViews = f["Installation Views"] || [];
-            if (installViews.length > 0) {
-              const imgUrl = origin + "/api/attachment?id=" + rec.id + "&field=Installation%20Views&index=0";
+            // Single rooms use "Installation Views"; sectioned rooms may only
+            // have "Installation Views 1/2/3", so take the first one that has
+            // an image.
+            const ogField = ["Installation Views", "Installation Views 1", "Installation Views 2", "Installation Views 3"]
+              .find((k) => (f[k] || []).length > 0);
+            if (ogField) {
+              const imgUrl = origin + "/api/attachment?id=" + rec.id + "&field=" + encodeURIComponent(ogField) + "&index=0";
               extraTags +=
                 '<meta property="og:image" content="' + escapeHtml(imgUrl) + '">' +
                 '<meta name="twitter:image" content="' + escapeHtml(imgUrl) + '">';
