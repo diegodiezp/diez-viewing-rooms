@@ -16,7 +16,7 @@ const ART_FIELDS = {
   technique: 'Technique',
   height: 'Height (cm)',
   width: 'Width (cm)',
-  price: 'Price',
+  price: 'Price €',
   image: 'Image',
 };
 
