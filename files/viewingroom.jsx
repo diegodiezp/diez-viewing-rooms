@@ -44,18 +44,53 @@ function trackEngagement(event_type, artwork_id, artwork_title) {
   }
 }
 
-// The Airtable "Dates" free-text field was replaced by separate Start Date /
-// End Date date fields, so the display string is assembled here.
-function formatDateRange(start, end) {
-  if (!start && !end) return '';
-  const parse = (s) => new Date(s + 'T00:00:00');
-  const full = (d) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-  if (!start || !end || start === end) return full(parse(start || end));
-  const s = parse(start), e = parse(end);
-  const startPart = s.getFullYear() === e.getFullYear()
-    ? s.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
-    : full(s);
-  return startPart + ' – ' + full(e);
+// Active-time tracking. Counts seconds only while the tab is visible AND the
+// visitor has interacted in the last 60 s, and reports the running TOTAL every
+// 15 s to diez-mail, which keeps one Email Events row per session up to date.
+const HEARTBEAT_URL = 'https://t.diez.gallery/api/ev/heartbeat';
+let activeTrackingStarted = false;
+
+function startActiveTimeTracking() {
+  if (!TRACKING_TOKEN || activeTrackingStarted || !navigator.sendBeacon) return;
+  activeTrackingStarted = true;
+
+  const SEND_EVERY_MS = 15000;
+  const IDLE_AFTER_MS = 60000;
+  const MIN_SECONDS = 5;      // shorter visits are bounces, never sent
+  const MAX_SECONDS = 3600;   // cap per session
+
+  const sessionId = crypto.randomUUID();
+  let seconds = 0;
+  let lastSent = 0;
+  let lastInput = Date.now();
+
+  ['mousemove', 'scroll', 'keydown', 'touchstart', 'click'].forEach(evt =>
+    window.addEventListener(evt, () => { lastInput = Date.now(); }, { passive: true, capture: true })
+  );
+
+  setInterval(() => {
+    if (document.visibilityState === 'visible'
+        && Date.now() - lastInput < IDLE_AFTER_MS
+        && seconds < MAX_SECONDS) seconds++;
+  }, 1000);
+
+  const send = () => {
+    if (seconds < MIN_SECONDS || seconds === lastSent) return;
+    lastSent = seconds;
+    const payload = JSON.stringify({ t: TRACKING_TOKEN, session_id: sessionId, active_seconds: seconds });
+    try {
+      // text/plain = no CORS preflight, and sendBeacon survives tab close
+      navigator.sendBeacon(HEARTBEAT_URL, new Blob([payload], { type: 'text/plain' }));
+    } catch (err) {
+      console.warn('Heartbeat failed:', err);
+    }
+  };
+
+  setInterval(send, SEND_EVERY_MS);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') send();
+  });
+  window.addEventListener('pagehide', send);
 }
 
 async function atFetch(tableId, qp = {}) {
@@ -84,16 +119,21 @@ function useViewport() {
   return vp;
 }
 
-// Status indicator: three states — Available (green), On Hold (amber), Sold (grey).
+// Status indicator: four states — Available (green), On Hold (amber),
+// Sold (grey), Not Available (muted taupe — consigned, offered, or
+// explicitly marked unavailable in Airtable but not sold).
 function Dot({ status, available }) {
   const onHold = status === 'On hold';
+  const sold = status === 'Sold';
   let color, dotColor, label;
   if (onHold) {
     color = '#8A7A4A'; dotColor = '#C4A24C'; label = 'On Hold';
   } else if (available) {
     color = '#5A7A5A'; dotColor = '#7AB07A'; label = 'Available';
-  } else {
+  } else if (sold) {
     color = '#999999'; dotColor = '#CCCCCC'; label = 'Sold';
+  } else {
+    color = '#8A8072'; dotColor = '#BFB6A6'; label = 'Not Available';
   }
   return (
     <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11,
@@ -268,6 +308,60 @@ function InstallationViews({ images, isMobile }) {
   );
 }
 
+// ── SECTION VIEWS (rooms with Installation Views 1/2/3) ───────────────────────
+// First view large, as the moment of "entering" the space; the rest smaller
+// underneath. Used only by sectioned rooms; single rooms keep the grid above.
+function SectionViews({ images, isMobile, sectionNo }) {
+  const [lightbox, setLightbox] = useState(null);
+
+  if (!images || !images.length) return null;
+  const [lead, ...rest] = images;
+  const open = (i) => {
+    setLightbox(i);
+    trackEngagement('Lightbox Open', null, 'Installation view ' + sectionNo + '.' + (i + 1));
+  };
+  const thumb = (img, i) => (
+    <div key={i} onClick={() => open(i)}
+      style={{ overflow:'hidden', cursor:'pointer', background:'#F5F5F5', aspectRatio:'4/3' }}>
+      <img src={img.url} alt={'Installation view ' + (i+1)} loading="lazy"
+        style={{ width:'100%', height:'100%', objectFit:'cover', display:'block',
+          transition:'transform 0.6s cubic-bezier(0.22,0.68,0,1)' }}
+        onMouseEnter={e => e.currentTarget.style.transform='scale(1.04)'}
+        onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}
+      />
+    </div>
+  );
+
+  return (
+    <>
+      {lightbox !== null && (
+        <Lightbox images={images} startIndex={lightbox} onClose={() => setLightbox(null)} />
+      )}
+      <section id={'installation-views-' + sectionNo} style={{
+        maxWidth:1200, margin:'0',
+        padding: isMobile ? '40px 20px 24px' : '56px 48px 32px',
+      }}>
+        <div onClick={() => open(0)} style={{ overflow:'hidden', cursor:'pointer', background:'#F5F5F5' }}>
+          {/* Lead view is shown ~1100px wide (x2 on retina): Airtable's "large"
+              thumbnail is only ~768px, so use the "full" one here. */}
+          <img src={lead.fullUrl || lead.url} alt="Installation view" loading="lazy" decoding="async"
+            style={{ width:'100%', height:'auto', display:'block' }}/>
+        </div>
+        {rest.length > 0 && (
+          <div style={{
+            marginTop: isMobile ? 2 : 3,
+            display:'grid',
+            gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
+            gap: isMobile ? '2px' : '3px',
+          }}>
+            {rest.map((img, i) => thumb(img, i + 1))}
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
 // ── LANDING ───────────────────────────────────────────────────────────────────
 function Landing({ room, works, onSelect }) {
   const { isMobile } = useViewport();
@@ -279,7 +373,7 @@ function Landing({ room, works, onSelect }) {
           <img src="/files/logo.png" alt="diez" style={{ height: isMobile ? 32 : 48, width:'auto' }}/>
         </a>
         <div className="subtitle-gray">
-          {room.dates ? `${room.dates}` : ''}
+          {room.booth ? `${room.booth}` : ''}{room.booth && room.dates ? ' · ' : ''}{room.dates ? `${room.dates}` : ''}
         </div>
         <h1 style={{ fontFamily:"'Replica', sans-serif",
           fontSize: isMobile ? 24 : 32, fontWeight:400, letterSpacing:'0', lineHeight:1.15 }}>
@@ -317,13 +411,35 @@ function Landing({ room, works, onSelect }) {
           </div>
         )}
       </header>
-      <main style={{ maxWidth:1200, margin:'0', padding: isMobile ? '0 20px 80px' : '0 48px 80px' }}>
-        {works.map((work, i) => (
-          <WorkRow key={work.id} work={work} index={i} onSelect={() => onSelect(i)} />
-        ))}
-      </main>
-      {room.installViews?.length > 0 && (
-        <InstallationViews images={room.installViews} isMobile={isMobile} />
+      {room.sections?.length > 0 ? (
+        // Sectioned room: views 1, works 1, views 2, works 2, views 3, works 3.
+        // Empty blocks are skipped. works[] stays one flat list so the detail
+        // view's prev/next runs through the whole room.
+        <div style={{ paddingBottom:80 }}>
+          {room.sections.map((sec) => (
+            <React.Fragment key={sec.no}>
+              <SectionViews images={sec.views} isMobile={isMobile} sectionNo={sec.no} />
+              {sec.workIdxs.length > 0 && (
+                <main style={{ maxWidth:1200, margin:'0', padding: isMobile ? '0 20px 24px' : '0 48px 32px' }}>
+                  {sec.workIdxs.map((wi, i) => (
+                    <WorkRow key={works[wi].id + '-' + sec.no} work={works[wi]} index={i} onSelect={() => onSelect(wi)} />
+                  ))}
+                </main>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      ) : (
+        <>
+          <main style={{ maxWidth:1200, margin:'0', padding: isMobile ? '0 20px 80px' : '0 48px 80px' }}>
+            {works.map((work, i) => (
+              <WorkRow key={work.id} work={work} index={i} onSelect={() => onSelect(i)} />
+            ))}
+          </main>
+          {room.installViews?.length > 0 && (
+            <InstallationViews images={room.installViews} isMobile={isMobile} />
+          )}
+        </>
       )}
       <footer style={{ padding: isMobile ? '40px 20px' : '48px 48px',
         display:'flex', flexWrap:'wrap', justifyContent:'space-between', alignItems:'center',
@@ -347,10 +463,11 @@ function WorkRow({ work, index, onSelect }) {
   const { isMobile } = useViewport();
 
   // A work that is On Hold is not "available" for direct sale but should still
-  // show its price and a (waitlist) Inquire button.
+  // show its price and a (waitlist) Inquire button. Sold and Not Available
+  // works show neither.
   const onHold = work.status === 'On hold';
   const showInquire = work.available || onHold;
-  const showPrice = work.status !== 'Sold';
+  const showPrice = work.available || onHold;
 
   return (
     <div onClick={onSelect} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
@@ -444,7 +561,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
   // On Hold logic mirrors the landing row.
   const onHold = work.status === 'On hold';
   const showInquire = work.available || onHold;
-  const showPrice = work.status !== 'Sold';
+  const showPrice = work.available || onHold;
 
   function cycleImage() {
     if (!hasDetails) return;
@@ -690,23 +807,42 @@ function App() {
         return;
       }
 
-      const artworkIds = vr['Artworks'] || [];
+      // Sectioned rooms: "Installation Views N" + "Artworks N" (N = 1..3).
+      // If none of these six fields has content, the room renders exactly as
+      // before from "Artworks" + "Installation Views" (single-room layout).
+      const viewUrls = (field, list) => list.map((att, i) => ({
+        url: '/api/attachment?id=' + vrRecordId + '&field=' + encodeURIComponent(field) + '&index=' + i + '&size=large',
+        fullUrl: '/api/attachment?id=' + vrRecordId + '&field=' + encodeURIComponent(field) + '&index=' + i + '&size=full',
+        filename: att.filename || 'Installation view',
+      }));
+      const rawSections = [1, 2, 3].map(no => ({
+        no,
+        views: viewUrls('Installation Views ' + no, vr['Installation Views ' + no] || []),
+        workIds: vr['Artworks ' + no] || [],
+      })).filter(sec => sec.views.length || sec.workIds.length);
+      const sectioned = rawSections.length > 0;
+
+      // Flat, de-duplicated order used for fetching and for the detail view.
+      const artworkIds = sectioned
+        ? [...new Set(rawSections.flatMap(sec => sec.workIds))]
+        : (vr['Artworks'] || []);
       if (!artworkIds.length) { setStatus('error'); setErrorMsg('This viewing room has no artworks yet.'); return; }
 
       const attachments = vr['Attachments'] || [];
       const installAttachments = vr['Installation Views'] || [];
       setRoom({
         gallery: 'Diez Gallery', title: vr['Name'] || 'Viewing Room',
-        dates: formatDateRange(vr['Start Date'], vr['End Date']), intro: vr['Introduction'] || '',
+        dates: vr['Dates'] || '', booth: vr['Booth'] || '', intro: vr['Introduction'] || '',
         files: attachments.map((att, i) => ({
           url: '/api/attachment?id=' + vrRecordId + '&index=' + i,
           filename: att.filename || 'Document',
         })),
-        installViews: installAttachments.map((att, i) => ({
+        installViews: sectioned ? [] : installAttachments.map((att, i) => ({
           url: '/api/attachment?id=' + vrRecordId + '&field=Installation%20Views&index=' + i + '&size=large',
           fullUrl: '/api/attachment?id=' + vrRecordId + '&field=Installation%20Views&index=' + i + '&size=full',
           filename: att.filename || 'Installation view',
         })),
+        sections: [], // filled below, once the artworks are loaded and ordered
       });
 
       const awFormula = 'OR(' + artworkIds.map(id => `RECORD_ID()="${id}"`).join(',') + ')';
@@ -723,15 +859,27 @@ function App() {
         (aData.records || []).forEach(a => { artistMap[a.id] = a.fields['Name'] || 'Unknown'; });
       }
 
-      artworks.sort((a, b) => (a.fields['Artist Index'] || 0) - (b.fields['Artist Index'] || 0));
+      // Order is per-room, taken from the drag order of the "Artworks" linked
+      // field on this Viewing Room record — NOT from the Artworks table's
+      // "Artist Index" field, which is inventory catalog numbering and must
+      // stay independent of any single room's display order.
+      const roomOrder = new Map(artworkIds.map((id, i) => [id, i]));
+      artworks.sort((a, b) => (roomOrder.get(a.id) ?? 0) - (roomOrder.get(b.id) ?? 0));
 
       const mapped = artworks.map((aw) => {
         const f = aw.fields;
         const artistLinks = f['Artist name'] || [];
         const artistName = artistLinks.map(id => artistMap[id] || 'Unknown').join(', ');
-        const status = f['Status'] || '';
-        const available = status !== 'Sold' && status !== 'On hold';
-        const price = f['Price €'] || null;
+        // Airtable's "Not available" option ships with a trailing space in
+        // the base ("Not available "), so trim before comparing. Blank
+        // Status is left as available (unset works keep prior behavior).
+        // "Not available", "Consigned" and "Offered" are all non-public
+        // states — anything not explicitly "Available" is unavailable
+        // unless it's the On hold / Sold statuses handled separately below.
+        const status = (f['Status'] || '').trim();
+        const nonPublic = status === 'Not available' || status === 'Consigned' || status === 'Offered';
+        const available = status !== 'Sold' && status !== 'On hold' && !nonPublic;
+        const price = f['Price €'] || f['Price'] || null;
         return {
           id: aw.id, title: f['Title'] || 'Untitled', artist: artistName,
           year: f['Year'] || '', info: f['Info (Backup)'] || '',
@@ -743,6 +891,17 @@ function App() {
       });
 
       document.title = (vr['Name'] || 'Viewing Room') + ' — Diez Gallery';
+      if (sectioned) {
+        // Map each section's linked works to their index in the flat list.
+        // Works that no longer resolve (deleted records) are skipped.
+        const idxById = new Map(mapped.map((w, i) => [w.id, i]));
+        const sections = rawSections.map(sec => ({
+          no: sec.no,
+          views: sec.views,
+          workIdxs: sec.workIds.map(id => idxById.get(id)).filter(i => i !== undefined),
+        }));
+        setRoom(r => ({ ...r, sections }));
+      }
       setWorks(mapped);
       setStatus('ready');
 
@@ -760,6 +919,7 @@ function App() {
       // Funnel entry point: log that this identified recipient opened the room.
       // Anonymous visitors (no ?t= in URL) are silently ignored by the helper.
       trackEngagement('Viewing Room Open');
+      startActiveTimeTracking();
 
       // Preload detail images in background
       mapped.forEach(w => {
