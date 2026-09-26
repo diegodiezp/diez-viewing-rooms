@@ -342,7 +342,9 @@ function SectionViews({ images, isMobile, sectionNo }) {
         padding: isMobile ? '40px 20px 24px' : '56px 48px 32px',
       }}>
         <div onClick={() => open(0)} style={{ overflow:'hidden', cursor:'pointer', background:'#F5F5F5' }}>
-          <img src={lead.url} alt="Installation view" loading="lazy"
+          {/* Lead view is shown ~1100px wide (x2 on retina): Airtable's "large"
+              thumbnail is only ~768px, so use the "full" one here. */}
+          <img src={lead.fullUrl || lead.url} alt="Installation view" loading="lazy" decoding="async"
             style={{ width:'100%', height:'auto', display:'block' }}/>
         </div>
         {rest.length > 0 && (
