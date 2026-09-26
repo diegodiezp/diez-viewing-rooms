@@ -1,6 +1,6 @@
 // Source for the viewing room app. viewing-room.html loads the compiled
 // version from /files/viewing-room.js — after editing this file, regenerate
-// it with `npm run build` and commit both files.
+// it with `npm run compile` and commit both files.
 const { useState, useEffect, useCallback, useRef } = React;
 
 const PROXY        = '/api/airtable';
@@ -101,6 +101,24 @@ async function atFetch(tableId, qp = {}) {
   const res = await fetch(parts.join('&'));
   if (!res.ok) throw new Error('API error: ' + res.status);
   return res.json();
+}
+
+// "2026-09-05" + "2026-10-31" -> "5 September – 31 October 2026".
+// Same year: the year is written once. Only one date: just that date.
+function formatDates(start, end) {
+  const parse = (d) => {
+    if (!d) return null;
+    const [y, m, day] = String(d).slice(0, 10).split('-').map(Number);
+    return (y && m && day) ? { y, m, day } : null;
+  };
+  const MONTHS = ['January','February','March','April','May','June','July',
+    'August','September','October','November','December'];
+  const fmt = (d, withYear) => d.day + ' ' + MONTHS[d.m - 1] + (withYear ? ' ' + d.y : '');
+  const a = parse(start), b = parse(end);
+  if (a && b) return fmt(a, a.y !== b.y) + ' – ' + fmt(b, true);
+  if (a) return fmt(a, true);
+  if (b) return 'Until ' + fmt(b, true);
+  return '';
 }
 
 // Single shared viewport hook so components don't each register their own
@@ -832,7 +850,7 @@ function App() {
       const installAttachments = vr['Installation Views'] || [];
       setRoom({
         gallery: 'Diez Gallery', title: vr['Name'] || 'Viewing Room',
-        dates: vr['Dates'] || '', booth: vr['Booth'] || '', intro: vr['Introduction'] || '',
+        dates: formatDates(vr['Start Date'], vr['End Date']), booth: '', intro: vr['Introduction'] || '',
         files: attachments.map((att, i) => ({
           url: '/api/attachment?id=' + vrRecordId + '&index=' + i,
           filename: att.filename || 'Document',
