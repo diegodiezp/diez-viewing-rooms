@@ -431,6 +431,81 @@ function InstallationViews({
   }))))));
 }
 
+// ── SECTION VIEWS (rooms with Installation Views 1/2/3) ───────────────────────
+// First view large, as the moment of "entering" the space; the rest smaller
+// underneath. Used only by sectioned rooms; single rooms keep the grid above.
+function SectionViews({
+  images,
+  isMobile,
+  sectionNo
+}) {
+  const [lightbox, setLightbox] = useState(null);
+  if (!images || !images.length) return null;
+  const [lead, ...rest] = images;
+  const open = i => {
+    setLightbox(i);
+    trackEngagement('Lightbox Open', null, 'Installation view ' + sectionNo + '.' + (i + 1));
+  };
+  const thumb = (img, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    onClick: () => open(i),
+    style: {
+      overflow: 'hidden',
+      cursor: 'pointer',
+      background: '#F5F5F5',
+      aspectRatio: '4/3'
+    }
+  }, /*#__PURE__*/React.createElement("img", {
+    src: img.url,
+    alt: 'Installation view ' + (i + 1),
+    loading: "lazy",
+    style: {
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      display: 'block',
+      transition: 'transform 0.6s cubic-bezier(0.22,0.68,0,1)'
+    },
+    onMouseEnter: e => e.currentTarget.style.transform = 'scale(1.04)',
+    onMouseLeave: e => e.currentTarget.style.transform = 'scale(1)'
+  }));
+  return /*#__PURE__*/React.createElement(React.Fragment, null, lightbox !== null && /*#__PURE__*/React.createElement(Lightbox, {
+    images: images,
+    startIndex: lightbox,
+    onClose: () => setLightbox(null)
+  }), /*#__PURE__*/React.createElement("section", {
+    id: 'installation-views-' + sectionNo,
+    style: {
+      maxWidth: 1200,
+      margin: '0',
+      padding: isMobile ? '40px 20px 24px' : '56px 48px 32px'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: () => open(0),
+    style: {
+      overflow: 'hidden',
+      cursor: 'pointer',
+      background: '#F5F5F5'
+    }
+  }, /*#__PURE__*/React.createElement("img", {
+    src: lead.url,
+    alt: "Installation view",
+    loading: "lazy",
+    style: {
+      width: '100%',
+      height: 'auto',
+      display: 'block'
+    }
+  })), rest.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: isMobile ? 2 : 3,
+      display: 'grid',
+      gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
+      gap: isMobile ? '2px' : '3px'
+    }
+  }, rest.map((img, i) => thumb(img, i + 1)))));
+}
+
 // ── LANDING ───────────────────────────────────────────────────────────────────
 function Landing({
   room,
@@ -542,7 +617,33 @@ function Landing({
       e.target.style.color = '#000000';
       e.target.style.borderBottomColor = '#000000';
     }
-  }, "\u2193 Installation Views"))), /*#__PURE__*/React.createElement("main", {
+  }, "\u2193 Installation Views"))), room.sections?.length > 0 ?
+  /*#__PURE__*/
+  // Sectioned room: views 1, works 1, views 2, works 2, views 3, works 3.
+  // Empty blocks are skipped. works[] stays one flat list so the detail
+  // view's prev/next runs through the whole room.
+  React.createElement("div", {
+    style: {
+      paddingBottom: 80
+    }
+  }, room.sections.map(sec => /*#__PURE__*/React.createElement(React.Fragment, {
+    key: sec.no
+  }, /*#__PURE__*/React.createElement(SectionViews, {
+    images: sec.views,
+    isMobile: isMobile,
+    sectionNo: sec.no
+  }), sec.workIdxs.length > 0 && /*#__PURE__*/React.createElement("main", {
+    style: {
+      maxWidth: 1200,
+      margin: '0',
+      padding: isMobile ? '0 20px 24px' : '0 48px 32px'
+    }
+  }, sec.workIdxs.map((wi, i) => /*#__PURE__*/React.createElement(WorkRow, {
+    key: works[wi].id + '-' + sec.no,
+    work: works[wi],
+    index: i,
+    onSelect: () => onSelect(wi)
+  })))))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("main", {
     style: {
       maxWidth: 1200,
       margin: '0',
@@ -556,7 +657,7 @@ function Landing({
   }))), room.installViews?.length > 0 && /*#__PURE__*/React.createElement(InstallationViews, {
     images: room.installViews,
     isMobile: isMobile
-  }), /*#__PURE__*/React.createElement("footer", {
+  })), /*#__PURE__*/React.createElement("footer", {
     style: {
       padding: isMobile ? '40px 20px' : '48px 48px',
       display: 'flex',
@@ -1240,7 +1341,24 @@ function App() {
         setErrorMsg('This viewing room is no longer available. Contact diego@diez.gallery for current works.');
         return;
       }
-      const artworkIds = vr['Artworks'] || [];
+
+      // Sectioned rooms: "Installation Views N" + "Artworks N" (N = 1..3).
+      // If none of these six fields has content, the room renders exactly as
+      // before from "Artworks" + "Installation Views" (single-room layout).
+      const viewUrls = (field, list) => list.map((att, i) => ({
+        url: '/api/attachment?id=' + vrRecordId + '&field=' + encodeURIComponent(field) + '&index=' + i + '&size=large',
+        fullUrl: '/api/attachment?id=' + vrRecordId + '&field=' + encodeURIComponent(field) + '&index=' + i + '&size=full',
+        filename: att.filename || 'Installation view'
+      }));
+      const rawSections = [1, 2, 3].map(no => ({
+        no,
+        views: viewUrls('Installation Views ' + no, vr['Installation Views ' + no] || []),
+        workIds: vr['Artworks ' + no] || []
+      })).filter(sec => sec.views.length || sec.workIds.length);
+      const sectioned = rawSections.length > 0;
+
+      // Flat, de-duplicated order used for fetching and for the detail view.
+      const artworkIds = sectioned ? [...new Set(rawSections.flatMap(sec => sec.workIds))] : vr['Artworks'] || [];
       if (!artworkIds.length) {
         setStatus('error');
         setErrorMsg('This viewing room has no artworks yet.');
@@ -1258,11 +1376,12 @@ function App() {
           url: '/api/attachment?id=' + vrRecordId + '&index=' + i,
           filename: att.filename || 'Document'
         })),
-        installViews: installAttachments.map((att, i) => ({
+        installViews: sectioned ? [] : installAttachments.map((att, i) => ({
           url: '/api/attachment?id=' + vrRecordId + '&field=Installation%20Views&index=' + i + '&size=large',
           fullUrl: '/api/attachment?id=' + vrRecordId + '&field=Installation%20Views&index=' + i + '&size=full',
           filename: att.filename || 'Installation view'
-        }))
+        })),
+        sections: [] // filled below, once the artworks are loaded and ordered
       });
       const awFormula = 'OR(' + artworkIds.map(id => `RECORD_ID()="${id}"`).join(',') + ')';
       const awData = await atFetch(TBL_ARTWORKS, {
@@ -1322,6 +1441,20 @@ function App() {
         };
       });
       document.title = (vr['Name'] || 'Viewing Room') + ' — Diez Gallery';
+      if (sectioned) {
+        // Map each section's linked works to their index in the flat list.
+        // Works that no longer resolve (deleted records) are skipped.
+        const idxById = new Map(mapped.map((w, i) => [w.id, i]));
+        const sections = rawSections.map(sec => ({
+          no: sec.no,
+          views: sec.views,
+          workIdxs: sec.workIds.map(id => idxById.get(id)).filter(i => i !== undefined)
+        }));
+        setRoom(r => ({
+          ...r,
+          sections
+        }));
+      }
       setWorks(mapped);
       setStatus('ready');
 
