@@ -17,6 +17,9 @@ const ALLOWED_FIELDS = {
   "tbl8EUvqiOLudNvjv": [
     "Name", "Start Date", "End Date", "Introduction", "Artworks",
     "Attachments", "Installation Views", "Expires", "Private", "URL slug",
+    "Artworks 1", "Installation Views 1",
+    "Artworks 2", "Installation Views 2",
+    "Artworks 3", "Installation Views 3",
   ],
   "tblK8xDtKmakHWt6k": [
     "Title", "Year", "Info (Backup)", "Status",

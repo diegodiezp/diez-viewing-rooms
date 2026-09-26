@@ -4,7 +4,10 @@ const BASE_ID = "appkTmFvjmDLOQS4p";
 const TABLE_ID = "tbl8EUvqiOLudNvjv";
 
 // Only these attachment fields can be served
-const ALLOWED_FIELDS = ["Attachments", "Installation Views"];
+const ALLOWED_FIELDS = [
+  "Attachments", "Installation Views",
+  "Installation Views 1", "Installation Views 2", "Installation Views 3",
+];
 
 module.exports = async function handler(req, res) {
   applyCors(req, res);
