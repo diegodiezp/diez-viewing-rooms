@@ -121,6 +121,16 @@ function formatDates(start, end) {
   return '';
 }
 
+// Sharpness on retina / high-DPI screens. Airtable's "large" thumbnail is only
+// ~512px on its short side, which looks soft once a 400px slot is drawn at 2x
+// or 3x. The browser picks "large" on normal screens and "full" (up to 3000px)
+// only when the slot actually needs the extra pixels. Widths are conservative
+// on purpose: under-declaring makes the browser switch to "full" slightly
+// early, never too late.
+function sharpSrcSet(largeUrl, fullUrl) {
+  return fullUrl ? largeUrl + ' 512w, ' + fullUrl + ' 2000w' : undefined;
+}
+
 // Single shared viewport hook so components don't each register their own
 // resize listener.
 function useViewport() {
@@ -310,7 +320,9 @@ function InstallationViews({ images, isMobile }) {
           {images.map((img, i) => (
             <div key={i} onClick={() => { setLightbox(i); trackEngagement('Lightbox Open', null, 'Installation view ' + (i + 1)); }}
               style={{ overflow:'hidden', cursor:'pointer', background:'#F5F5F5', aspectRatio:'4/3' }}>
-              <img src={img.url} alt={'Installation view ' + (i+1)} loading="lazy"
+              <img src={img.url} alt={'Installation view ' + (i+1)} loading="lazy" decoding="async"
+                srcSet={sharpSrcSet(img.url, img.fullUrl)}
+                sizes={isMobile ? '50vw' : '300px'}
                 style={{
                   width:'100%', height:'100%', objectFit:'cover', display:'block',
                   transition:'transform 0.6s cubic-bezier(0.22,0.68,0,1)',
@@ -341,7 +353,9 @@ function SectionViews({ images, isMobile, sectionNo }) {
   const thumb = (img, i) => (
     <div key={i} onClick={() => open(i)}
       style={{ overflow:'hidden', cursor:'pointer', background:'#F5F5F5', aspectRatio:'4/3' }}>
-      <img src={img.url} alt={'Installation view ' + (i+1)} loading="lazy"
+      <img src={img.url} alt={'Installation view ' + (i+1)} loading="lazy" decoding="async"
+        srcSet={sharpSrcSet(img.url, img.fullUrl)}
+        sizes={isMobile ? '50vw' : '370px'}
         style={{ width:'100%', height:'100%', objectFit:'cover', display:'block',
           transition:'transform 0.6s cubic-bezier(0.22,0.68,0,1)' }}
         onMouseEnter={e => e.currentTarget.style.transform='scale(1.04)'}
@@ -498,7 +512,9 @@ function WorkRow({ work, index, onSelect }) {
       <div style={{ position:'relative', overflow:'hidden', borderRadius:1,
         display:'flex', alignItems:'center', justifyContent:'center' }}>
         {work.imageUrl ? (
-          <img src={work.imageUrl} alt={work.title} loading="lazy"
+          <img src={work.imageUrl} alt={work.title} loading="lazy" decoding="async"
+            srcSet={sharpSrcSet(work.imageUrl, work.imageUrlFull)}
+            sizes={isMobile ? 'calc(100vw - 40px)' : '400px'}
             style={{ width:'100%', height:'auto',
               maxHeight: isMobile ? '70vh' : '480px',
               objectFit:'contain', display:'block',
