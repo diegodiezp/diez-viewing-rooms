@@ -346,6 +346,14 @@ function SectionViews({ images, isMobile, sectionNo }) {
 
   if (!images || !images.length) return null;
   const [lead, ...rest] = images;
+  // Desktop: the lead view is the "entering the room" moment, so it may grow
+  // wider than the 1200px column of works, up to the full window, as long as
+  // the whole image still fits in ~88% of the screen height. It is never
+  // narrower than the old 1200px layout (1104px of image). The thumbnails
+  // below share the same width, so the block stays one unit.
+  const ratio = lead.ratio || 1.5;
+  const leadWidth = 'max(min(calc(100vw - 100px), 1104px), '
+    + 'min(calc(100vw - 100px), calc(88vh * ' + ratio.toFixed(4) + ')))';
   const open = (i) => {
     setLightbox(i);
     trackEngagement('Lightbox Open', null, 'Installation view ' + sectionNo + '.' + (i + 1));
@@ -355,7 +363,7 @@ function SectionViews({ images, isMobile, sectionNo }) {
       style={{ overflow:'hidden', cursor:'pointer', background:'#F5F5F5', aspectRatio:'4/3' }}>
       <img src={img.url} alt={'Installation view ' + (i+1)} loading="lazy" decoding="async"
         srcSet={sharpSrcSet(img.url, img.fullUrl)}
-        sizes={isMobile ? '50vw' : '370px'}
+        sizes={isMobile ? '50vw' : '34vw'}
         style={{ width:'100%', height:'100%', objectFit:'cover', display:'block',
           transition:'transform 0.6s cubic-bezier(0.22,0.68,0,1)' }}
         onMouseEnter={e => e.currentTarget.style.transform='scale(1.04)'}
@@ -370,14 +378,15 @@ function SectionViews({ images, isMobile, sectionNo }) {
         <Lightbox images={images} startIndex={lightbox} onClose={() => setLightbox(null)} />
       )}
       <section id={'installation-views-' + sectionNo} style={{
-        maxWidth:1200, margin:'0',
+        margin:'0',
         padding: isMobile ? '40px 20px 24px' : '56px 48px 32px',
       }}>
+        <div style={{ width: isMobile ? '100%' : leadWidth }}>
         <div onClick={() => open(0)} style={{ overflow:'hidden', cursor:'pointer', background:'#F5F5F5' }}>
           {/* Lead view is shown ~1100px wide (x2 on retina): Airtable's "large"
               thumbnail is only ~768px, so use the "full" one here. */}
           <img src={lead.fullUrl || lead.url} alt="Installation view" loading="lazy" decoding="async"
-            style={{ width:'100%', height:'auto', display:'block' }}/>
+            style={{ width:'100%', height:'auto', display:'block', aspectRatio: String(ratio) }}/>
         </div>
         {rest.length > 0 && (
           <div style={{
@@ -389,6 +398,7 @@ function SectionViews({ images, isMobile, sectionNo }) {
             {rest.map((img, i) => thumb(img, i + 1))}
           </div>
         )}
+        </div>
       </section>
     </>
   );
@@ -893,6 +903,7 @@ function App() {
         url: '/api/attachment?id=' + vrRecordId + '&field=' + encodeURIComponent(field) + '&index=' + i + '&size=large',
         fullUrl: '/api/attachment?id=' + vrRecordId + '&field=' + encodeURIComponent(field) + '&index=' + i + '&size=full',
         filename: att.filename || 'Installation view',
+        ratio: att.width && att.height ? att.width / att.height : null,
       }));
       const rawSections = [1, 2, 3].map(no => ({
         no,
