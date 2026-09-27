@@ -488,32 +488,42 @@ function SectionViews({
     setLightbox(i);
     trackEngagement('Lightbox Open', null, 'Installation view ' + sectionNo + '.' + (i + 1));
   };
-  const thumb = (img, i) => /*#__PURE__*/React.createElement("div", {
-    key: i,
-    onClick: () => open(i),
-    style: {
-      overflow: 'hidden',
-      cursor: 'pointer',
-      background: '#F5F5F5',
-      aspectRatio: '4/3'
-    }
-  }, /*#__PURE__*/React.createElement("img", {
-    src: img.url,
-    alt: 'Installation view ' + (i + 1),
-    loading: "lazy",
-    decoding: "async",
-    srcSet: sharpSrcSet(img.url, img.fullUrl),
-    sizes: isMobile ? '50vw' : '34vw',
-    style: {
-      width: '100%',
-      height: '100%',
-      objectFit: 'cover',
-      display: 'block',
-      transition: 'transform 0.6s cubic-bezier(0.22,0.68,0,1)'
-    },
-    onMouseEnter: e => e.currentTarget.style.transform = 'scale(1.04)',
-    onMouseLeave: e => e.currentTarget.style.transform = 'scale(1)'
-  }));
+  // Thumbnails keep their real proportions (no 4:3 crop). Each one grows in
+  // proportion to its aspect ratio, so every image in a row ends up the same
+  // height and the row fills the block width: a justified gallery in plain
+  // CSS, no measuring. The filler after the last item stops the final row
+  // from being stretched.
+  const rowHeight = isMobile ? 110 : 240;
+  const thumb = (img, i) => {
+    const r = img.ratio || 1.5;
+    return /*#__PURE__*/React.createElement("div", {
+      key: i,
+      onClick: () => open(i),
+      style: {
+        overflow: 'hidden',
+        cursor: 'pointer',
+        background: '#F5F5F5',
+        flex: r + ' 1 ' + Math.round(r * rowHeight) + 'px',
+        aspectRatio: String(r)
+      }
+    }, /*#__PURE__*/React.createElement("img", {
+      src: img.url,
+      alt: 'Installation view ' + (i + 1),
+      loading: "lazy",
+      decoding: "async",
+      srcSet: sharpSrcSet(img.url, img.fullUrl),
+      sizes: isMobile ? '50vw' : '34vw',
+      style: {
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        display: 'block',
+        transition: 'transform 0.6s cubic-bezier(0.22,0.68,0,1)'
+      },
+      onMouseEnter: e => e.currentTarget.style.transform = 'scale(1.04)',
+      onMouseLeave: e => e.currentTarget.style.transform = 'scale(1)'
+    }));
+  };
   return /*#__PURE__*/React.createElement(React.Fragment, null, lightbox !== null && /*#__PURE__*/React.createElement(Lightbox, {
     images: images,
     startIndex: lightbox,
@@ -549,11 +559,17 @@ function SectionViews({
   })), rest.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: isMobile ? 2 : 3,
-      display: 'grid',
-      gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
+      display: 'flex',
+      flexWrap: 'wrap',
       gap: isMobile ? '2px' : '3px'
     }
-  }, rest.map((img, i) => thumb(img, i + 1))))));
+  }, rest.map((img, i) => thumb(img, i + 1)), /*#__PURE__*/React.createElement("div", {
+    "aria-hidden": "true",
+    style: {
+      flex: '999999 1 0px',
+      height: 0
+    }
+  })))));
 }
 
 // ── INTRO TEXT ───────────────────────────────────────────────────────────────
