@@ -545,6 +545,71 @@ function SectionViews({
   }, rest.map((img, i) => thumb(img, i + 1)))));
 }
 
+// ── INTRO TEXT ───────────────────────────────────────────────────────────────
+// Long introductions push the first image below the fold, especially on
+// mobile. Show whole paragraphs until ~INTRO_PREVIEW_WORDS words (always at
+// least one, so a short opening line like a list of artists is followed by
+// the first real paragraph), and fold the rest behind "Read more". Short
+// intros, or ones where only a little would be hidden, are shown in full.
+const INTRO_PREVIEW_WORDS = 60;
+const INTRO_MIN_HIDDEN_WORDS = 40;
+function IntroText({
+  text
+}) {
+  const [open, setOpen] = useState(false);
+  const paras = String(text).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+  const words = p => p.split(/\s+/).length;
+  let shown = 0,
+    count = 0;
+  while (shown < paras.length && (shown === 0 || count < INTRO_PREVIEW_WORDS)) {
+    count += words(paras[shown]);
+    shown++;
+  }
+  const hiddenWords = paras.slice(shown).reduce((n, p) => n + words(p), 0);
+  const foldable = hiddenWords >= INTRO_MIN_HIDDEN_WORDS;
+  const visible = open || !foldable ? paras : paras.slice(0, shown);
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 16
+    }
+  }, visible.map((p, i) => /*#__PURE__*/React.createElement("p", {
+    key: i,
+    className: "body-text",
+    style: {
+      whiteSpace: 'pre-line',
+      marginTop: i ? 12 : 0,
+      animation: i >= shown ? 'fadeIn 0.3s ease both' : 'none'
+    }
+  }, p)), foldable && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    "aria-expanded": open,
+    onClick: () => setOpen(o => !o),
+    style: {
+      marginTop: 14,
+      background: 'none',
+      border: 'none',
+      padding: 0,
+      borderBottom: '1px solid #000000',
+      paddingBottom: 1,
+      cursor: 'pointer',
+      fontFamily: "'Replica', sans-serif",
+      fontSize: 12,
+      letterSpacing: '0.08em',
+      textTransform: 'uppercase',
+      color: '#000000',
+      transition: 'color 0.15s'
+    },
+    onMouseEnter: e => {
+      e.currentTarget.style.color = '#666666';
+      e.currentTarget.style.borderBottomColor = '#666666';
+    },
+    onMouseLeave: e => {
+      e.currentTarget.style.color = '#000000';
+      e.currentTarget.style.borderBottomColor = '#000000';
+    }
+  }, open ? 'Read less' : 'Read more'));
+}
+
 // ── LANDING ───────────────────────────────────────────────────────────────────
 function Landing({
   room,
@@ -596,13 +661,9 @@ function Landing({
     style: {
       marginTop: 28
     }
-  }), room.intro && /*#__PURE__*/React.createElement("p", {
-    className: "body-text",
-    style: {
-      marginTop: 16,
-      whiteSpace: 'pre-line'
-    }
-  }, room.intro), (room.files?.length > 0 || room.installViews?.length > 0) && /*#__PURE__*/React.createElement("div", {
+  }), room.intro && /*#__PURE__*/React.createElement(IntroText, {
+    text: room.intro
+  }), (room.files?.length > 0 || room.installViews?.length > 0) && /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 12,
       display: 'flex',
