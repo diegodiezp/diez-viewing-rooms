@@ -477,6 +477,13 @@ function SectionViews({
   const [lightbox, setLightbox] = useState(null);
   if (!images || !images.length) return null;
   const [lead, ...rest] = images;
+  // Desktop: the lead view is the "entering the room" moment, so it may grow
+  // wider than the 1200px column of works, up to the full window, as long as
+  // the whole image still fits in ~88% of the screen height. It is never
+  // narrower than the old 1200px layout (1104px of image). The thumbnails
+  // below share the same width, so the block stays one unit.
+  const ratio = lead.ratio || 1.5;
+  const leadWidth = 'max(min(calc(100vw - 100px), 1104px), ' + 'min(calc(100vw - 100px), calc(88vh * ' + ratio.toFixed(4) + ')))';
   const open = i => {
     setLightbox(i);
     trackEngagement('Lightbox Open', null, 'Installation view ' + sectionNo + '.' + (i + 1));
@@ -496,7 +503,7 @@ function SectionViews({
     loading: "lazy",
     decoding: "async",
     srcSet: sharpSrcSet(img.url, img.fullUrl),
-    sizes: isMobile ? '50vw' : '370px',
+    sizes: isMobile ? '50vw' : '34vw',
     style: {
       width: '100%',
       height: '100%',
@@ -514,9 +521,12 @@ function SectionViews({
   }), /*#__PURE__*/React.createElement("section", {
     id: 'installation-views-' + sectionNo,
     style: {
-      maxWidth: 1200,
       margin: '0',
       padding: isMobile ? '40px 20px 24px' : '56px 48px 32px'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: isMobile ? '100%' : leadWidth
     }
   }, /*#__PURE__*/React.createElement("div", {
     onClick: () => open(0),
@@ -533,7 +543,8 @@ function SectionViews({
     style: {
       width: '100%',
       height: 'auto',
-      display: 'block'
+      display: 'block',
+      aspectRatio: String(ratio)
     }
   })), rest.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
@@ -542,7 +553,7 @@ function SectionViews({
       gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
       gap: isMobile ? '2px' : '3px'
     }
-  }, rest.map((img, i) => thumb(img, i + 1)))));
+  }, rest.map((img, i) => thumb(img, i + 1))))));
 }
 
 // ── INTRO TEXT ───────────────────────────────────────────────────────────────
@@ -1451,7 +1462,8 @@ function App() {
       const viewUrls = (field, list) => list.map((att, i) => ({
         url: '/api/attachment?id=' + vrRecordId + '&field=' + encodeURIComponent(field) + '&index=' + i + '&size=large',
         fullUrl: '/api/attachment?id=' + vrRecordId + '&field=' + encodeURIComponent(field) + '&index=' + i + '&size=full',
-        filename: att.filename || 'Installation view'
+        filename: att.filename || 'Installation view',
+        ratio: att.width && att.height ? att.width / att.height : null
       }));
       const rawSections = [1, 2, 3].map(no => ({
         no,
