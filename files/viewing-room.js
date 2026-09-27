@@ -133,6 +133,16 @@ function formatDates(start, end) {
   return '';
 }
 
+// Sharpness on retina / high-DPI screens. Airtable's "large" thumbnail is only
+// ~512px on its short side, which looks soft once a 400px slot is drawn at 2x
+// or 3x. The browser picks "large" on normal screens and "full" (up to 3000px)
+// only when the slot actually needs the extra pixels. Widths are conservative
+// on purpose: under-declaring makes the browser switch to "full" slightly
+// early, never too late.
+function sharpSrcSet(largeUrl, fullUrl) {
+  return fullUrl ? largeUrl + ' 512w, ' + fullUrl + ' 2000w' : undefined;
+}
+
 // Single shared viewport hook so components don't each register their own
 // resize listener.
 function useViewport() {
@@ -441,6 +451,9 @@ function InstallationViews({
     src: img.url,
     alt: 'Installation view ' + (i + 1),
     loading: "lazy",
+    decoding: "async",
+    srcSet: sharpSrcSet(img.url, img.fullUrl),
+    sizes: isMobile ? '50vw' : '300px',
     style: {
       width: '100%',
       height: '100%',
@@ -481,6 +494,9 @@ function SectionViews({
     src: img.url,
     alt: 'Installation view ' + (i + 1),
     loading: "lazy",
+    decoding: "async",
+    srcSet: sharpSrcSet(img.url, img.fullUrl),
+    sizes: isMobile ? '50vw' : '370px',
     style: {
       width: '100%',
       height: '100%',
@@ -766,6 +782,9 @@ function WorkRow({
     src: work.imageUrl,
     alt: work.title,
     loading: "lazy",
+    decoding: "async",
+    srcSet: sharpSrcSet(work.imageUrl, work.imageUrlFull),
+    sizes: isMobile ? 'calc(100vw - 40px)' : '400px',
     style: {
       width: '100%',
       height: 'auto',
