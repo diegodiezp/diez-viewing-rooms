@@ -11,7 +11,7 @@
   var CACHE_KEY = "diez-stock-data-v1";
   var PREFS_KEY = "diez-stock-prefs-v1";
   var AIRTABLE_URL = "https://airtable.com/appkTmFvjmDLOQS4p/tblK8xDtKmakHWt6k/";
-  var STATUSES = ["Available", "On hold", "Offered", "Sold", "Consigned", "Not available"];
+  var STATUSES = ["Available", "On hold", "Sold", "Consigned", "Not available"];
   var LOCATIONS = ["Gallery Amsterdam", "Gallery Cologne", "Artist studio", "Collector", "In transit", "Consigned", "Other gallery, specify"];
   var SORTS = [
     ["recent", "Recently added"],
@@ -219,7 +219,7 @@
     }
     if (skip !== "size" && f.sizeMax != null && !(longest(w) && longest(w) <= f.sizeMax)) return false;
     if (state.q) {
-      var hay = norm([w.title, w.artist, w.technique, w.code, w.year, w.owner, w.edition, w.exhibitions.join(" "), w.location].join(" "));
+      var hay = norm([w.title, w.artist, w.technique, w.code, w.year, w.owner, w.edition, w.exhibitions.join(" "), w.location, w.notes].join(" "));
       var terms = norm(state.q).split(/\s+/).filter(Boolean);
       for (var i = 0; i < terms.length; i++) if (hay.indexOf(terms[i]) < 0) return false;
     }
@@ -644,7 +644,6 @@
       ["Collector", w.owner],
       ["Sold for", [fmt(w.soldEur, "EUR"), fmt(w.soldUsd, "USD"), fmt(w.soldGbp, "GBP")].filter(Boolean).join(", ")],
       ["Paid to artist", isSold(w) ? w.paidArtist || "Not recorded" : ""],
-      ["Notes", w.notes],
     ].filter(function (r) { return r[1]; });
     var other = [fmt(w.usd, "USD"), fmt(w.gbp, "GBP")].filter(Boolean).join(", ");
     var statusNow = w.status || "";
@@ -668,6 +667,7 @@
       (state.hasLocation ? '<div class="field"><label for="loc">Where it is</label><select id="loc"><option value="">Unknown</option>' +
       LOCATIONS.map(function (l) { return "<option" + (w.location === l ? " selected" : "") + ">" + esc(l) + "</option>"; }).join("") +
       "</select></div>" : "") +
+      '<div class="notes" id="notes"></div>' +
       (w.docs.length ? '<div class="docs"><p class="group-label">Documents</p>' + w.docs.map(function (d) { return '<a href="' + esc(d.url) + '" target="_blank" rel="noopener">' + esc(d.kind + ": " + d.name) + "</a>"; }).join("") + "</div>" : "") +
       '<div class="foot">' +
       '<button class="btn primary" data-pick>' + (picked ? "Remove from selection" : "Add to selection") + "</button>" +
@@ -700,8 +700,61 @@
         });
       }
     };
+    renderNotes(w);
     var loc = document.getElementById("loc");
     if (loc) loc.onchange = function (e) { write(w, { location: e.target.value }, function () {}); };
+  }
+
+  // ---------- notes ----------
+  // "Add" puts one dated line on top (dated and merged on the server, so it
+  // never overwrites a note written in Airtable meanwhile). "Edit" rewrites
+  // the whole field, for corrections.
+  function renderNotes(w, editing) {
+    var box = document.getElementById("notes");
+    if (!box) return;
+    if (editing) {
+      box.innerHTML =
+        '<p class="group-label">Notes</p>' +
+        '<textarea id="notes-all" rows="8" aria-label="All notes">' + esc(w.notes) + "</textarea>" +
+        '<div class="note-actions"><button class="btn" data-n="cancel">Cancel</button><button class="btn primary" data-n="save">Save notes</button></div>';
+      var ta = document.getElementById("notes-all"); ta.focus();
+    } else {
+      box.innerHTML =
+        '<p class="group-label">Notes</p>' +
+        '<form class="note-add" id="note-form"><input id="note-new" maxlength="2000" autocomplete="off" enterkeyhint="send" placeholder="Add a note" aria-label="New note">' +
+        '<button class="btn primary" type="submit">Add</button></form>' +
+        (w.notes ? '<p class="note-text">' + esc(w.notes) + '</p><button class="text-btn small" data-n="edit">Edit notes</button>' : "");
+      document.getElementById("note-form").onsubmit = function (e) {
+        e.preventDefault();
+        var input = document.getElementById("note-new");
+        var text = input.value.trim(); if (!text) return;
+        var btn = e.target.querySelector("button"); btn.disabled = true; input.disabled = true;
+        saveNotes(w, { note: text }, function (ok) { btn.disabled = false; input.disabled = false; if (ok) renderNotes(w); });
+      };
+    }
+    box.onclick = function (e) {
+      var b = e.target.closest("[data-n]"); if (!b) return;
+      var a = b.getAttribute("data-n");
+      if (a === "edit") renderNotes(w, true);
+      if (a === "cancel") renderNotes(w);
+      if (a === "save") {
+        b.disabled = true;
+        saveNotes(w, { notes: document.getElementById("notes-all").value }, function (ok) { if (ok) renderNotes(w); else b.disabled = false; });
+      }
+    };
+  }
+  function saveNotes(w, change, done) {
+    api("/api/stock/update", { method: "POST", body: JSON.stringify(Object.assign({ id: w.id }, change)) })
+      .then(function (r) {
+        w.notes = r.notes || "";
+        writeCache({ at: state.loadedAt, hasLocation: state.hasLocation, works: state.works });
+        toast(change.note ? "Note added" : "Notes saved");
+        done(true);
+      })
+      .catch(function (err) {
+        if (err.auth) { renderLogin("Signed out. Sign in again."); return; }
+        toast(err.message); done(false);
+      });
   }
 
   function write(w, change, after) {

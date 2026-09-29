@@ -63,7 +63,7 @@ const F = {
 };
 
 // Exact option names in Airtable (note the trailing space in "Not available ")
-const STATUS_OPTIONS = ["Available", "On hold", "Offered", "Sold", "Consigned", "Not available "];
+const STATUS_OPTIONS = ["Available", "On hold", "Sold", "Consigned", "Not available "];
 const LOCATION_OPTIONS = [
   "Gallery Amsterdam", "Gallery Cologne", "Artist studio", "Collector",
   "In transit", "Consigned", "Other gallery, specify",

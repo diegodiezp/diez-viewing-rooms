@@ -225,6 +225,15 @@ a.btn { color: var(--ink); text-decoration: none; display: inline-block; }
 .segment button { border: 1px solid var(--rule); border-radius: 999px; padding: 7px 12px; font-size: 13px; }
 .segment button[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--paper); }
 .group-label { font-size: 12px; color: var(--quiet); padding-bottom: 8px; }
+.notes { display: grid; gap: 10px; }
+.notes .group-label { padding-bottom: 0; }
+.note-add { display: flex; gap: 8px; }
+.note-add input { flex: 1; min-width: 0; border: 0; border-bottom: 1px solid var(--ink); padding: 8px 0; font-size: 16px; background: transparent; border-radius: 0; }
+.note-add input:focus { outline: none; border-bottom-width: 2px; }
+.note-text { white-space: pre-line; font-size: 14px; line-height: 1.5; border-left: 2px solid var(--rule); padding-left: 12px; }
+.notes textarea { width: 100%; border: 1px solid var(--ink); padding: 10px; font-size: 16px; line-height: 1.5; resize: vertical; border-radius: 0; }
+.note-actions { display: flex; gap: 10px; }
+.text-btn.small { font-size: 13px; color: var(--quiet); justify-self: start; }
 .docs a { display: block; padding: 8px 0; text-decoration: underline; text-underline-offset: 4px; color: var(--ink); }
 .detail .foot { display: flex; gap: 10px; flex-wrap: wrap; }
 
