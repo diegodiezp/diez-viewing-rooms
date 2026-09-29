@@ -43,3 +43,29 @@ Commit both the source and the compiled file, with exactly these names.
 ## Environment variables (Vercel)
 
 - `AIRTABLE_PAT`: Airtable personal access token (read for the proxies)
+
+## Stock (private inventory tool)
+
+`/stock` is a password-protected, phone-first browser for the whole
+Artworks table: search, filters (artist, status, medium, price, size),
+a to-scale view, work detail with documents, status changes, and a
+selection tray that creates a private viewing room, copies a caption
+list or prints a tearsheet.
+
+- `stock.html` + `files/stock.js`: page shell and plain-JS front end
+  (no compile step)
+- `api/_lib/stock.js`: session cookie (HMAC), Airtable helpers, field IDs
+- `api/stock/login.js`: POST password, DELETE signs out
+- `api/stock/works.js`: full inventory, linked names resolved server-side
+- `api/stock/update.js`: status / location of one work (whitelisted options)
+- `api/stock/room.js`: creates a private room in the Viewing Rooms table
+
+It never goes through `api/airtable.js`, so the public whitelists stay as
+they are. It uses field IDs, so renaming Airtable fields does not break it.
+
+Extra environment variables:
+
+- `STOCK_PASSWORD`: the password typed on the login screen
+- `STOCK_SECRET`: 32+ random characters, signs the session cookie
+- `STOCK_AIRTABLE_PAT`: token with `data.records:read` and
+  `data.records:write` on this base only
