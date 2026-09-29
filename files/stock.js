@@ -121,6 +121,50 @@
     return copy(url ? text + "\n" + url : text).then(function (ok) { toast(ok ? "Copied" : "Could not copy"); return ok; });
   }
 
+  // ---------- send a work (caption + image) ----------
+  // The image is fetched as soon as the detail opens, through our own
+  // /api/image proxy (same origin, allowed by the CSP). Browsers only allow
+  // the share sheet right after a tap, so the file has to be ready before
+  // the tap rather than downloaded after it.
+  var prepared = { id: null, file: null };
+  function prepareImage(w) {
+    prepared = { id: w.id, file: null };
+    if (!w.img.length || !navigator.canShare) return;
+    var slug = norm((w.artist ? w.artist + " " : "") + w.title).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "work";
+    function get(size) {
+      return fetch("/api/image?id=" + encodeURIComponent(w.id) + "&size=" + size).then(function (r) {
+        if (!r.ok) throw new Error("image " + r.status);
+        return r.blob();
+      });
+    }
+    get("full").catch(function () { return get("large"); }).then(function (blob) {
+      if (prepared.id !== w.id) return;
+      var type = blob.type && blob.type.indexOf("image/") === 0 ? blob.type : "image/jpeg";
+      var ext = type === "image/png" ? ".png" : type === "image/webp" ? ".webp" : ".jpg";
+      var file = new File([blob], slug + ext, { type: type });
+      if (navigator.canShare({ files: [file] })) prepared.file = file;
+    }).catch(function () {});
+  }
+  function sendWork(w) {
+    var text = caption(w);
+    var file = prepared.id === w.id ? prepared.file : null;
+    if (file && navigator.share) {
+      // Some apps (WhatsApp on iPhone among them) drop the text when an image
+      // is attached, so the caption also goes to the clipboard.
+      copy(text);
+      navigator.share({ files: [file], text: text, title: w.title })
+        .then(function () { toast("Sent. The caption is also copied"); }, function (err) {
+          if (err && err.name === "AbortError") return;
+          share(w.title, text);
+        });
+      return;
+    }
+    if (w.img.length && navigator.canShare && prepared.id === w.id && !prepared.file) {
+      toast("Image still loading, sending the caption only");
+    }
+    share(w.title, text);
+  }
+
   // ---------- data ----------
   function readCache() {
     try {
@@ -589,6 +633,7 @@
     state.detail = id;
     if (!fromPop) history.pushState({ work: id }, "", "#" + id);
     var pics = w.img.concat(w.details, w.install);
+    prepareImage(w);
     var picked = state.selected.indexOf(id) >= 0;
     var facts = [
       ["Medium", w.technique],
@@ -626,7 +671,7 @@
       (w.docs.length ? '<div class="docs"><p class="group-label">Documents</p>' + w.docs.map(function (d) { return '<a href="' + esc(d.url) + '" target="_blank" rel="noopener">' + esc(d.kind + ": " + d.name) + "</a>"; }).join("") + "</div>" : "") +
       '<div class="foot">' +
       '<button class="btn primary" data-pick>' + (picked ? "Remove from selection" : "Add to selection") + "</button>" +
-      '<button class="btn" data-share>Share caption</button>' +
+      '<button class="btn" data-send>Send work</button>' +
       '<a class="btn" href="' + AIRTABLE_URL + w.id + '" target="_blank" rel="noopener">Open in Airtable</a>' +
       "</div></div></div></article>";
     document.body.style.overflow = "hidden";
@@ -644,7 +689,7 @@
         e.target.closest("[data-pick]").textContent = state.selected.indexOf(id) >= 0 ? "Remove from selection" : "Add to selection";
         return;
       }
-      if (e.target.closest("[data-share]")) { share(w.title, caption(w)); return; }
+      if (e.target.closest("[data-send]")) { sendWork(w); return; }
       var sb = e.target.closest("[data-status]");
       if (sb) {
         var next = sb.getAttribute("data-status");
