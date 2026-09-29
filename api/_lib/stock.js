@@ -165,11 +165,50 @@ function token() {
   return t;
 }
 
-async function airtable(pathAndQuery, options = {}) {
-  const res = await fetch("https://api.airtable.com/v0/" + BASE_ID + "/" + pathAndQuery, {
+// ---- diez-mail base (contacts + tracked links) ----
+// The stock tool never signs tracking tokens itself. It only writes a row in
+// diez-mail's Short Links table; diez-mail's own /s/[code] route signs the
+// token and redirects, exactly like the Manual / WhatsApp links made there.
+const MAIL = {
+  base: "appFkqvnXlu2Y1Fe4",
+  people: "tbl3NlUODD2Ztq3sl",
+  shortLinks: "tbliEox0ni0RigKhs",
+  manualCampaign: "recCGO12VNM4qbogv", // Campaigns > "Manual / WhatsApp Links"
+  p: {
+    first: "fldmtHtXN2WIiuEY7",
+    last: "fldlW0S7JiqLWNlgh",
+    email: "fld7321gIEITgBj0j",
+    type: "fld5zbP417mYFvLbZ",
+    company: "fldC7TPRIpyatLlWr",
+  },
+  s: {
+    code: "fldgKkl3WRchMjk9i",
+    url: "fldHc46WLUWhqi7ub",
+    email: "fldhJEdTFk7iCO0RV",
+    person: "fldy9CdOpDBY2Cd6x",
+    campaign: "fldXS9zrWnITwN8aS",
+    tid: "fldYWEVUhm1BRRMqM",
+    label: "fldDtMEnvv95QzEHA",
+  },
+  shortBase: "https://t.diez.gallery/s/",
+};
+
+function mailToken() {
+  // Either a separate token, or the stock token with the mail base added
+  const t = process.env.STOCK_MAIL_PAT || process.env.STOCK_AIRTABLE_PAT;
+  if (!t) throw new Error("STOCK_MAIL_PAT not configured");
+  return t;
+}
+
+async function mail(pathAndQuery, options = {}) {
+  return airtable(pathAndQuery, options, MAIL.base, mailToken());
+}
+
+async function airtable(pathAndQuery, options = {}, baseId = BASE_ID, tok = null) {
+  const res = await fetch("https://api.airtable.com/v0/" + baseId + "/" + pathAndQuery, {
     ...options,
     headers: {
-      Authorization: "Bearer " + token(),
+      Authorization: "Bearer " + (tok || token()),
       "Content-Type": "application/json",
       ...(options.headers || {}),
     },
@@ -214,5 +253,5 @@ const isRecordId = (s) => typeof s === "string" && /^rec[A-Za-z0-9]{14}$/.test(s
 module.exports = {
   BASE_ID, T, F, STATUS_OPTIONS, LOCATION_OPTIONS,
   newSession, clearSession, requireSession, sameOrigin, noStore,
-  airtable, listAll, readJson, isRecordId,
+  airtable, listAll, readJson, isRecordId, MAIL, mail,
 };

@@ -194,6 +194,15 @@ a.btn { color: var(--ink); text-decoration: none; display: inline-block; }
   border: 0; border-bottom: 1px solid var(--ink); padding: 8px 0; font-size: 16px; background: transparent; border-radius: 0;
 }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.person small, .chosen small { display: block; color: var(--quiet); font-size: 12px; }
+.chosen { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+.chosen strong { font-weight: 700; }
+.people { display: grid; }
+.opt:disabled { opacity: .45; }
+.link-row { padding: 14px 0; border-bottom: 1px solid var(--rule); }
+.link-who { font-size: 13px; color: var(--quiet); }
+.link-row .actions { padding-top: 6px; }
+#room-result .text-btn.small { margin-top: 14px; }
 .link-out { word-break: break-all; padding: 12px 0; font-size: 15px; }
 .link-out a { color: var(--ink); text-underline-offset: 4px; }
 

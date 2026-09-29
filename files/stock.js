@@ -559,43 +559,161 @@
     };
   }
 
+  // ---------- contact picker (diez-mail People) ----------
+  // Renders a search box into `box`. Calls onPick({ personId, name, email })
+  // for an existing contact or onPick({ newPerson: {...}, name, email }).
+  function contactPicker(box, onPick) {
+    box.innerHTML =
+      '<div class="field"><label for="who">Send to</label><input id="who" autocomplete="off" placeholder="Search a contact by name or email"></div>' +
+      '<div class="people" id="people"></div>';
+    var input = box.querySelector("#who");
+    var list = box.querySelector("#people");
+    var t, seq = 0;
+    function newForm(prefill) {
+      var looksEmail = prefill.indexOf("@") > 0;
+      var parts = looksEmail ? ["", ""] : prefill.split(" ");
+      list.innerHTML =
+        '<div class="two"><div class="field"><label for="nf">First name</label><input id="nf" value="' + esc(parts[0] || "") + '"></div>' +
+        '<div class="field"><label for="nl">Last name</label><input id="nl" value="' + esc(parts.slice(1).join(" ")) + '"></div></div>' +
+        '<div class="field"><label for="ne">Email</label><input id="ne" type="email" inputmode="email" value="' + esc(looksEmail ? prefill : "") + '"></div>' +
+        '<div class="actions"><button class="btn primary" data-newok>Use this contact</button></div>' +
+        '<p class="group-label">It is added to diez-mail. If the email already exists there, that contact is used.</p>';
+      list.querySelector("[data-newok]").onclick = function () {
+        var n = { first: box.querySelector("#nf").value.trim(), last: box.querySelector("#nl").value.trim(), email: box.querySelector("#ne").value.trim() };
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(n.email)) { toast("Add a valid email"); box.querySelector("#ne").focus(); return; }
+        onPick({ newPerson: n, name: (n.first + " " + n.last).trim() || n.email, email: n.email });
+      };
+    }
+    input.addEventListener("input", function () {
+      clearTimeout(t);
+      var q = input.value.trim();
+      if (q.length < 2) { list.innerHTML = ""; return; }
+      t = setTimeout(function () {
+        var mine = ++seq;
+        api("/api/stock/people?q=" + encodeURIComponent(q)).then(function (r) {
+          if (mine !== seq) return;
+          list.innerHTML = r.people.map(function (p) {
+            return '<button class="opt person" data-pid="' + p.id + '" data-name="' + esc(p.name || p.email) + '" data-email="' + esc(p.email) + '"' + (p.email ? "" : " disabled") + ">" +
+              "<span>" + esc(p.name || p.email) + '<small>' + esc([p.email || "No email", p.company].filter(Boolean).join(", ")) + "</small></span>" +
+              '<span class="n">' + esc(p.type) + "</span></button>";
+          }).join("") +
+            '<button class="opt" data-new><span>Add "' + esc(q) + '" as a new contact</span></button>';
+          list.querySelector("[data-new]").onclick = function () { newForm(q); };
+          list.querySelectorAll("[data-pid]").forEach(function (b) {
+            b.onclick = function () { onPick({ personId: b.getAttribute("data-pid"), name: b.getAttribute("data-name"), email: b.getAttribute("data-email") }); };
+          });
+        }).catch(function (err) {
+          if (mine === seq) list.innerHTML = '<p class="group-label">' + esc(err.message) + "</p>";
+        });
+      }, 250);
+    });
+    setTimeout(function () { input.focus(); }, 50);
+  }
+
+  function trackedLink(roomUrl, label, who) {
+    var body = { url: roomUrl, label: label };
+    if (who.personId) body.personId = who.personId; else body.newPerson = who.newPerson;
+    return api("/api/stock/link", { method: "POST", body: JSON.stringify(body) });
+  }
+
+  function linkRow(title, url, sub, shareTitle) {
+    var row = document.createElement("div");
+    row.className = "link-row";
+    row.innerHTML =
+      '<p class="link-who">' + esc(title) + "</p>" +
+      '<p class="link-out"><a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + "</a></p>" +
+      (sub ? '<p class="group-label">' + esc(sub) + "</p>" : "") +
+      '<div class="actions"><button class="btn" data-copy>Copy link</button><button class="btn primary" data-share>Share</button></div>';
+    row.querySelector("[data-copy]").onclick = function () { copy(url).then(function (ok) { toast(ok ? "Link copied" : "Could not copy"); }); };
+    row.querySelector("[data-share]").onclick = function () { share(shareTitle, shareTitle, url); };
+    return row;
+  }
+
+  // "Tracked link for another contact": one more picker per click, each
+  // producing its own link row, so one room can go to several people.
+  function addAnother(container, roomUrl, roomName) {
+    var btn = document.createElement("button");
+    btn.className = "text-btn small";
+    btn.textContent = "Tracked link for another contact";
+    container.appendChild(btn);
+    btn.onclick = function () {
+      var box = document.createElement("div");
+      container.replaceChild(box, btn);
+      contactPicker(box, function (p) {
+        box.innerHTML = '<p class="group-label">Creating the link for ' + esc(p.name) + "</p>";
+        trackedLink(roomUrl, roomName, p).then(function (l) {
+          container.replaceChild(linkRow("Tracked link for " + l.name, l.url, "", roomName), box);
+          addAnother(container, roomUrl, roomName);
+        }).catch(function (err) {
+          box.remove(); toast(err.message);
+          addAnother(container, roomUrl, roomName);
+        });
+      });
+    };
+  }
+
   function roomSheet(works) {
     var artists = [];
     works.forEach(function (w) { if (w.artist && artists.indexOf(w.artist) < 0) artists.push(w.artist); });
     var suggestion = artists.length === 1 ? artists[0] : "";
+    var who = null;
     sheet(
       "<h2>New private viewing room</h2>" +
       '<div class="field"><label for="rname">Name</label><input id="rname" maxlength="120" placeholder="' + esc(suggestion || "e.g. Selection for a collector") + '" value="' + esc(suggestion) + '"></div>' +
       '<div class="field"><label for="rdays">Link works for</label><select id="rdays"><option value="7">1 week</option><option value="14">2 weeks</option><option value="30" selected>30 days</option><option value="90">90 days</option></select></div>' +
-      '<p class="group-label">' + works.length + (works.length === 1 ? " work" : " works") + ". The room is private and stops opening after the date you pick.</p>" +
-      '<div class="actions"><button class="btn" data-cancel>Cancel</button><button class="btn primary" data-create>Create room</button></div>' +
+      '<div id="who-box"></div>' +
+      '<p class="group-label" id="room-hint">' + works.length + (works.length === 1 ? " work" : " works") + ". Pick who it is for and the link is tracked: you see when they open it, which works they look at and for how long.</p>" +
+      '<div class="actions" id="room-actions"><button class="btn" data-cancel>Cancel</button><button class="btn primary" data-create>Create room</button></div>' +
       '<div id="room-result"></div>',
       function (s) {
+        var whoBox = s.querySelector("#who-box");
+        function pickWho() {
+          contactPicker(whoBox, function (p) {
+            who = p;
+            whoBox.innerHTML = '<div class="chosen"><span>For <strong>' + esc(p.name) + "</strong><small>" + esc(p.email) + (p.newPerson ? ", new contact" : "") + '</small></span><button class="text-btn small" data-change>Change</button></div>';
+            whoBox.querySelector("[data-change]").onclick = function () { who = null; pickWho(); };
+          });
+          var skip = document.createElement("button");
+          skip.className = "text-btn small"; skip.textContent = "No contact, make an anonymous link";
+          skip.onclick = function () { who = null; whoBox.innerHTML = '<div class="chosen"><span>Anonymous link, not tracked</span><button class="text-btn small" data-change>Add a contact</button></div>'; whoBox.querySelector("[data-change]").onclick = pickWho; };
+          whoBox.appendChild(skip);
+        }
+        pickWho();
+
         s.onclick = function (e) {
           if (e.target.closest("[data-cancel]")) { closeSheet(); return; }
           var cr = e.target.closest("[data-create]");
-          if (cr) {
-            var name = document.getElementById("rname").value.trim();
-            if (!name) { document.getElementById("rname").focus(); toast("Give the room a name"); return; }
-            cr.disabled = true; cr.textContent = "Creating";
-            var artistIds = [];
-            works.forEach(function (w) { (w.artistIds || []).forEach(function (id) { if (artistIds.indexOf(id) < 0) artistIds.push(id); }); });
-            api("/api/stock/room", { method: "POST", body: JSON.stringify({ name: name, ids: works.map(function (w) { return w.id; }), artistIds: artistIds, days: document.getElementById("rdays").value }) })
-              .then(function (r) {
-                s.querySelector(".actions").remove();
-                document.getElementById("room-result").innerHTML =
-                  '<p class="link-out"><a href="' + esc(r.url) + '" target="_blank" rel="noopener">' + esc(r.url) + "</a></p>" +
-                  '<p class="group-label">Open until ' + esc(r.expires) + ".</p>" +
-                  '<div class="actions"><button class="btn" data-copy>Copy link</button><button class="btn primary" data-share>Share</button></div>';
-                s.querySelector("[data-copy]").onclick = function () { copy(r.url).then(function (ok) { toast(ok ? "Link copied" : "Could not copy"); }); };
-                s.querySelector("[data-share]").onclick = function () { share(name, name, r.url); };
-              })
-              .catch(function (err) {
-                cr.disabled = false; cr.textContent = "Create room";
-                if (err.auth) { closeSheet(); renderLogin("Signed out. Sign in again."); return; }
-                toast(err.message);
-              });
-          }
+          if (!cr) return;
+          var name = document.getElementById("rname").value.trim();
+          if (!name) { document.getElementById("rname").focus(); toast("Give the room a name"); return; }
+          cr.disabled = true; cr.textContent = "Creating";
+          var artistIds = [];
+          works.forEach(function (w) { (w.artistIds || []).forEach(function (id) { if (artistIds.indexOf(id) < 0) artistIds.push(id); }); });
+          var room;
+          api("/api/stock/room", { method: "POST", body: JSON.stringify({ name: name, ids: works.map(function (w) { return w.id; }), artistIds: artistIds, days: document.getElementById("rdays").value }) })
+            .then(function (r) {
+              room = r;
+              return who ? trackedLink(r.url, name, who).catch(function (err) { return { error: err }; }) : null;
+            })
+            .then(function (link) {
+              s.querySelector("#room-actions").remove();
+              s.querySelector("#room-hint").remove();
+              whoBox.remove();
+              var out = document.getElementById("room-result");
+              out.innerHTML = '<p class="group-label">Room open until ' + esc(room.expires) + ".</p>";
+              if (link && !link.error) {
+                out.appendChild(linkRow("Tracked link for " + link.name, link.url, "Send this one. Opens, works viewed and time spent go to " + link.name + " in diez-mail.", name));
+              } else if (link && link.error) {
+                toast("Room created, but the tracked link failed: " + link.error.message);
+              }
+              out.appendChild(linkRow(link && !link.error ? "Anonymous link" : "Link", room.url, link && !link.error ? "Not tracked. Use it for yourself or to post publicly." : "", name));
+              addAnother(out, room.url, name);
+            })
+            .catch(function (err) {
+              cr.disabled = false; cr.textContent = "Create room";
+              if (err.auth) { closeSheet(); renderLogin("Signed out. Sign in again."); return; }
+              toast(err.message);
+            });
         };
       }
     );
