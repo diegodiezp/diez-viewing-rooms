@@ -9,6 +9,10 @@
   "use strict";
 
   var CACHE_KEY = "diez-stock-data-v1";
+  // Data younger than this is shown as is, without asking Airtable again.
+  // Saves API calls when the app is opened many times in a row (fairs).
+  // The refresh button always fetches fresh data.
+  var FRESH_MS = 3 * 60 * 60 * 1000;
   var PREFS_KEY = "diez-stock-prefs-v1";
   var AIRTABLE_URL = "https://airtable.com/appkTmFvjmDLOQS4p/tblK8xDtKmakHWt6k/";
   var STATUSES = ["Available", "On hold", "Sold", "Consigned", "Not available"];
@@ -321,6 +325,7 @@
   function paintRefresh() {
     var b = document.getElementById("refresh");
     if (b) b.classList.toggle("spin", !!state.loading);
+    paintUpdated();
   }
 
   function render() {
@@ -371,6 +376,15 @@
     };
   }
 
+  function paintUpdated() {
+    var el = document.getElementById("updated");
+    if (!el) return;
+    if (state.loading) { el.textContent = "Updating"; return; }
+    var a = age();
+    if (a === Infinity) { el.textContent = ""; return; }
+    var m = Math.floor(a / 60000);
+    el.textContent = m < 1 ? "Updated just now" : m < 60 ? "Updated " + m + " min ago" : "Updated " + Math.floor(m / 60) + " h ago";
+  }
   function renderSummary() {
     var list = visible();
     var listed = list.filter(function (w) { return !isSold(w) && w.eur; });
@@ -378,11 +392,12 @@
     var el = document.getElementById("summary");
     el.innerHTML =
       "<div><strong>" + list.length + "</strong>" + (list.length === 1 ? "work" : "works") +
-      (total ? '<div>' + esc(fmt(total)) + " at list price</div>" : "") + "</div>" +
+      (total ? '<div>' + esc(fmt(total)) + " at list price</div>" : "") + '<div class="updated" id="updated"></div>' + "</div>" +
       '<div class="view-switch" role="group" aria-label="View">' +
       '<button data-view="grid" aria-pressed="' + (state.view === "grid") + '">Grid</button>' +
       '<button data-view="scale" aria-pressed="' + (state.view === "scale") + '">To scale</button>' +
       "</div>";
+    paintUpdated();
     el.onclick = function (e) {
       var b = e.target.closest("[data-view]"); if (!b) return;
       state.view = b.getAttribute("data-view"); savePrefs(); renderSummary(); renderList();
@@ -811,7 +826,8 @@
   }
   function renderShowsSummary() {
     var n = visibleShows().length;
-    document.getElementById("summary").innerHTML = "<div><strong>" + n + "</strong>" + (n === 1 ? "show" : "shows") + "</div>";
+    document.getElementById("summary").innerHTML = "<div><strong>" + n + "</strong>" + (n === 1 ? "show" : "shows") + '<div class="updated" id="updated"></div></div>';
+    paintUpdated();
     document.getElementById("summary").onclick = null;
   }
   function showCover(x, works) {
@@ -1123,9 +1139,26 @@
   loadPrefs();
   readCache();
   renderShell();
-  load(false);
+  function age() { return state.loadedAt ? Date.now() - new Date(state.loadedAt).getTime() : Infinity; }
+  if (age() > FRESH_MS) load(false);
   document.addEventListener("visibilitychange", function () {
-    // Coming back to the tab after a while: pick up changes made elsewhere
-    if (document.visibilityState === "visible" && state.loadedAt && Date.now() - new Date(state.loadedAt).getTime() > 10 * 60 * 1000) load(false);
+    // Back to the app after a while: pick up changes made elsewhere
+    if (document.visibilityState === "visible") {
+      if (age() > FRESH_MS) load(false); else renderBody();
+    }
   });
+  // Airtable image links expire after about two hours, sooner than the data
+  // is considered stale. When one fails to load, fetch fresh links once
+  // (at most every 10 minutes) instead of showing broken images.
+  var lastImageRetry = 0;
+  document.addEventListener("error", function (e) {
+    var t = e.target;
+    if (!t || t.tagName !== "IMG" || (t.src || "").indexOf("airtableusercontent") < 0) return;
+    if (state.loading || Date.now() - lastImageRetry < 10 * 60 * 1000) return;
+    lastImageRetry = Date.now();
+    load(false);
+  }, true);
+
+  // Keeps "Updated n min ago" honest while the app stays open
+  setInterval(function () { if (document.visibilityState === "visible" && document.getElementById("updated")) paintUpdated(); }, 60 * 1000);
 })();
