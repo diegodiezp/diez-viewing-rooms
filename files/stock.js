@@ -749,7 +749,10 @@
   function openDetail(id, fromPop) {
     var w = byId(id); if (!w) return;
     state.detail = id;
-    if (!fromPop) history.pushState({ work: id }, "", "#" + id);
+    // History entry so the phone's back gesture closes the work, but the URL
+    // itself never changes: a home-screen shortcut saved while a work was
+    // open would otherwise reopen that work on every launch.
+    if (!fromPop) history.pushState({ work: id }, "", location.pathname);
     var pics = w.img.concat(w.details, w.install);
     prepareImage(w);
     var picked = state.selected.indexOf(id) >= 0;
@@ -917,13 +920,12 @@
   }
 
   // ---------- boot ----------
+  // Old shortcuts may still carry "#recXXXX" from the previous version: drop it
+  if (location.hash) history.replaceState(null, "", location.pathname + location.search);
   loadPrefs();
-  var hadCache = readCache();
+  readCache();
   renderShell();
-  load(false).then(function () {
-    var h = location.hash.slice(1);
-    if (h && byId(h)) { history.replaceState(null, "", location.pathname); openDetail(h); }
-  });
+  load(false);
   document.addEventListener("visibilitychange", function () {
     // Coming back to the tab after a while: pick up changes made elsewhere
     if (document.visibilityState === "visible" && state.loadedAt && Date.now() - new Date(state.loadedAt).getTime() > 10 * 60 * 1000) load(false);
