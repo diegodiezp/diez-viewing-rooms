@@ -12,7 +12,7 @@
   var PREFS_KEY = "diez-stock-prefs-v1";
   var AIRTABLE_URL = "https://airtable.com/appkTmFvjmDLOQS4p/tblK8xDtKmakHWt6k/";
   var STATUSES = ["Available", "On hold", "Sold", "Consigned", "Not available"];
-  var LOCATIONS = ["Gallery Amsterdam", "Gallery Cologne", "Artist studio", "Collector", "In transit", "Consigned", "Other gallery, specify"];
+  var LOCATIONS = ["Gallery Amsterdam", "Artist studio", "Collector", "Consigned"];
   var SORTS = [
     ["recent", "Recently added"],
     ["artist", "Artist"],
