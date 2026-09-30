@@ -3,6 +3,19 @@
 // so the phone never has to.
 const { T, F, requireSession, listAll } = require("../_lib/stock");
 
+// Exhibitions fields, by ID
+const EX = {
+  name: "fld2fYPaVjGsMKZmR",
+  venue: "fldzaltFlwo9I5e2V",
+  city: "fldAaOramOCy8K3G1",
+  country: "fldT3kmmAAVx6Xi7K",
+  start: "fldSok60pzC1H7dXb",
+  end: "fldqWFpllnUrIzKF7",
+  text: "fldrZAQXbtLsLyWrb",
+  views: "fldJnsfNpePCHYnd9",
+  artist: "fldG0de8X9H80bpUC",
+};
+
 // Warm function instances reuse this for a minute. The page asks for
 // ?fresh=1 after its own writes and on manual refresh.
 let memo = { at: 0, data: null };
@@ -31,7 +44,7 @@ async function build() {
     listAll(T.artworks, null),
     listAll(T.artists, ["fldkqPCHZcaYFDyjO"]),
     listAll(T.clients, ["fldbHYdlWIpQSZdd6", "fldxC6RMIawlYYfsx"]),
-    listAll(T.exhibitions, ["fld2fYPaVjGsMKZmR", "fldSok60pzC1H7dXb"]),
+    listAll(T.exhibitions, Object.values(EX)),
   ]);
 
   const artistName = new Map(artists.map((r) => [r.id, (r.fields.fldkqPCHZcaYFDyjO || "").trim()]));
@@ -40,9 +53,26 @@ async function build() {
     [r.fields.fldbHYdlWIpQSZdd6, r.fields.fldxC6RMIawlYYfsx].filter(Boolean).join(" ").trim(),
   ]));
   const exhibition = new Map(exhibitions.map((r) => [r.id, {
-    name: r.fields.fld2fYPaVjGsMKZmR || "",
-    date: r.fields.fldSok60pzC1H7dXb || "",
+    name: r.fields[EX.name] || "",
+    date: r.fields[EX.start] || "",
   }]));
+  const shows = exhibitions
+    .filter((r) => (r.fields[EX.name] || "").trim())
+    .map((r) => {
+      const f = r.fields;
+      return {
+        id: r.id,
+        name: f[EX.name].trim(),
+        venue: f[EX.venue] || "",
+        city: f[EX.city] || "",
+        country: f[EX.country] || "",
+        start: f[EX.start] || "",
+        end: f[EX.end] || "",
+        text: f[EX.text] || "",
+        views: images(f[EX.views]),
+        artists: (f[EX.artist] || []).map((id) => artistName.get(id)).filter(Boolean),
+      };
+    });
 
   let hasLocation = false;
   const out = works
@@ -81,6 +111,7 @@ async function build() {
         paidArtist: f[F.paidArtist] || "",
         archived: !!f[F.archived],
         exhibitions: exhNames,
+        exhibitionIds: f[F.exhibitions] || [],
         img: images(f[F.image]),
         details: images(f[F.details]),
         install: images(f[F.install]),
@@ -92,7 +123,7 @@ async function build() {
       };
     });
 
-  return { at: new Date().toISOString(), hasLocation, works: out };
+  return { at: new Date().toISOString(), hasLocation, works: out, shows };
 }
 
 module.exports = async function handler(req, res) {

@@ -12,7 +12,7 @@
   var PREFS_KEY = "diez-stock-prefs-v1";
   var AIRTABLE_URL = "https://airtable.com/appkTmFvjmDLOQS4p/tblK8xDtKmakHWt6k/";
   var STATUSES = ["Available", "On hold", "Sold", "Consigned", "Not available"];
-  var LOCATIONS = ["Gallery Amsterdam", "Artist studio", "Collector", "Consigned"];
+  var LOCATIONS = ["Gallery Amsterdam", "Gallery Cologne", "Artist studio", "Collector", "In transit", "Consigned", "Other gallery, specify"];
   var SORTS = [
     ["recent", "Recently added"],
     ["artist", "Artist"],
@@ -28,6 +28,9 @@
     works: [],
     loadedAt: null,
     hasLocation: false,
+    shows: [],
+    tab: "works",
+    show: null,
     loading: false,
     q: "",
     f: {
@@ -94,7 +97,7 @@
   }
   function savePrefs() {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ f: state.f, sort: state.sort, view: state.view, scale: state.scale }));
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ f: state.f, sort: state.sort, view: state.view, scale: state.scale, tab: state.tab }));
     } catch (e) {}
   }
   function loadPrefs() {
@@ -103,6 +106,7 @@
       if (p) {
         Object.assign(state.f, p.f || {});
         state.sort = p.sort || state.sort;
+        state.tab = p.tab === "shows" ? "shows" : "works";
         state.view = p.view || state.view;
         state.scale = p.scale || null;
       }
@@ -169,7 +173,7 @@
   function readCache() {
     try {
       var c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
-      if (c && c.works) { state.works = c.works; state.loadedAt = c.at; state.hasLocation = !!c.hasLocation; return true; }
+      if (c && c.works) { state.works = c.works; state.shows = c.shows || []; state.loadedAt = c.at; state.hasLocation = !!c.hasLocation; return true; }
     } catch (e) {}
     return false;
   }
@@ -190,7 +194,7 @@
     state.loading = true; paintRefresh();
     return api("/api/stock/works" + (fresh ? "?fresh=1" : ""))
       .then(function (data) {
-        state.works = data.works; state.loadedAt = data.at; state.hasLocation = !!data.hasLocation;
+        state.works = data.works; state.shows = data.shows || []; state.loadedAt = data.at; state.hasLocation = !!data.hasLocation;
         if (!state.hasLocation) state.f.location = [];
         writeCache(data);
         state.loading = false;
@@ -281,8 +285,11 @@
     app.innerHTML =
       '<header class="head">' +
       '  <div class="bar">' +
-      '    <span class="brand">diez stock</span>' +
-      '    <input class="search" id="q" type="search" placeholder="Search works" autocomplete="off" enterkeyhint="search" aria-label="Search the inventory">' +
+      '    <nav class="tabs" role="tablist" aria-label="View">' +
+      '      <button role="tab" data-tab="works">Works</button>' +
+      '      <button role="tab" data-tab="shows">Shows</button>' +
+      "    </nav>" +
+      '    <input class="search" id="q" type="search" autocomplete="off" enterkeyhint="search" aria-label="Search">' +
       '    <button class="icon-btn" id="refresh" aria-label="Refresh from Airtable">' + I.refresh + "</button>" +
       "  </div>" +
       '  <nav class="filters" id="filters" aria-label="Filters"></nav>' +
@@ -291,6 +298,7 @@
       '<main id="list"></main>' +
       '<div id="tray-slot"></div>' +
       '<div id="sheet-slot"></div>' +
+      '<div id="show-slot"></div>' +
       '<div id="detail-slot"></div>';
     var q = document.getElementById("q");
     q.value = state.q;
@@ -300,6 +308,13 @@
       t = setTimeout(function () { state.q = q.value.trim(); renderBody(); }, 120);
     });
     document.getElementById("refresh").addEventListener("click", function () { load(true); });
+    document.querySelector(".tabs").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-tab]"); if (!b) return;
+      var tab = b.getAttribute("data-tab");
+      if (tab === state.tab) return;
+      state.tab = tab; state.q = ""; q.value = ""; savePrefs(); render();
+      window.scrollTo(0, 0);
+    });
     render();
   }
 
@@ -310,9 +325,18 @@
 
   function render() {
     if (!document.getElementById("list")) return;
+    document.querySelectorAll("[data-tab]").forEach(function (b) { b.setAttribute("aria-selected", b.getAttribute("data-tab") === state.tab); });
+    var q = document.getElementById("q");
+    q.placeholder = state.tab === "shows" ? "Search shows" : "Search works";
+    document.getElementById("filters").hidden = state.tab === "shows";
     renderFilters(); renderBody(); paintRefresh();
   }
-  function renderBody() { renderSummary(); renderList(); renderTray(); }
+  function renderBody() {
+    if (state.tab === "shows") { renderShowsSummary(); renderShows(); }
+    else { renderSummary(); renderList(); }
+    renderTray();
+    if (state.show) paintShow();
+  }
 
   function pillLabel(name, values, single) {
     if (!values.length) return name;
@@ -405,8 +429,7 @@
   function toggleSelect(id) {
     var i = state.selected.indexOf(id);
     if (i >= 0) state.selected.splice(i, 1); else state.selected.push(id);
-    var c = document.querySelector('[data-id="' + id + '"]');
-    if (c) c.classList.toggle("picked", i < 0);
+    document.querySelectorAll('.card[data-id="' + id + '"]').forEach(function (c) { c.classList.toggle("picked", i < 0); });
     renderTray();
   }
 
@@ -652,10 +675,10 @@
     };
   }
 
-  function roomSheet(works) {
+  function roomSheet(works, presetName) {
     var artists = [];
     works.forEach(function (w) { if (w.artist && artists.indexOf(w.artist) < 0) artists.push(w.artist); });
-    var suggestion = artists.length === 1 ? artists[0] : "";
+    var suggestion = presetName || (artists.length === 1 ? artists[0] : "");
     var who = null;
     sheet(
       "<h2>New private viewing room</h2>" +
@@ -745,6 +768,160 @@
     setTimeout(go, 6000);
   }
 
+  // ---------- shows (exhibitions) ----------
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function showDates(x) {
+    function d(iso) { var p = iso.split("-"); return { y: +p[0], m: +p[1] - 1, d: +p[2] }; }
+    if (!x.start) return "";
+    var a = d(x.start);
+    if (!x.end) return a.d + " " + MONTHS[a.m] + " " + a.y;
+    var b = d(x.end);
+    if (a.y === b.y && a.m === b.m) return a.d + " to " + b.d + " " + MONTHS[b.m] + " " + b.y;
+    if (a.y === b.y) return a.d + " " + MONTHS[a.m] + " to " + b.d + " " + MONTHS[b.m] + " " + b.y;
+    return a.d + " " + MONTHS[a.m] + " " + a.y + " to " + b.d + " " + MONTHS[b.m] + " " + b.y;
+  }
+  function isOn(x) {
+    var today = new Date().toISOString().slice(0, 10);
+    if (!x.start || x.start > today) return false;
+    if (x.end) return x.end >= today;
+    // No end date in Airtable: count it as running only for its first week,
+    // otherwise every old show without an end date would say "Now on"
+    var weekLater = new Date(new Date(x.start).getTime() + 6 * 86400000).toISOString().slice(0, 10);
+    return today <= weekLater;
+  }
+  function isUpcoming(x) { return x.start && x.start > new Date().toISOString().slice(0, 10); }
+  function showWorks(id) {
+    var order = { "Available": 0, "On hold": 1, "Consigned": 2, "Not available": 3, "Sold": 4 };
+    return state.works
+      .filter(function (w) { return (w.exhibitionIds || []).indexOf(id) >= 0; })
+      .sort(function (a, b) { return ((order[a.status] != null ? order[a.status] : 5) - (order[b.status] != null ? order[b.status] : 5)) || (a.artist || "").localeCompare(b.artist || ""); });
+  }
+  function showById(id) { for (var i = 0; i < state.shows.length; i++) if (state.shows[i].id === id) return state.shows[i]; return null; }
+  function visibleShows() {
+    var terms = norm(state.q).split(/\s+/).filter(Boolean);
+    return state.shows.filter(function (x) {
+      if (!terms.length) return true;
+      var hay = norm([x.name, x.venue, x.city, x.country, x.artists.join(" "), (x.start || "").slice(0, 4)].join(" "));
+      return terms.every(function (t) { return hay.indexOf(t) >= 0; });
+    }).sort(function (a, b) {
+      // Running now first, then upcoming, then the rest newest first
+      var ra = isOn(a) ? 0 : isUpcoming(a) ? 1 : 2, rb = isOn(b) ? 0 : isUpcoming(b) ? 1 : 2;
+      return ra - rb || (b.start || "").localeCompare(a.start || "");
+    });
+  }
+  function renderShowsSummary() {
+    var n = visibleShows().length;
+    document.getElementById("summary").innerHTML = "<div><strong>" + n + "</strong>" + (n === 1 ? "show" : "shows") + "</div>";
+    document.getElementById("summary").onclick = null;
+  }
+  function showCover(x, works) {
+    if (x.views.length) return x.views[0].s;
+    for (var i = 0; i < works.length; i++) if (works[i].img[0]) return works[i].img[0].s;
+    return null;
+  }
+  function renderShows() {
+    var el = document.getElementById("list");
+    var list = visibleShows();
+    if (!list.length) {
+      el.innerHTML = '<div class="empty"><p>' + (state.shows.length ? "No shows match your search." : "No exhibitions in Airtable yet.") + "</p></div>";
+      return;
+    }
+    el.innerHTML = '<div class="shows">' + list.map(function (x) {
+      var works = showWorks(x.id);
+      var avail = works.filter(function (w) { return w.status === "Available"; }).length;
+      var cover = showCover(x, works);
+      var where = [x.venue, x.city].filter(Boolean).join(", ");
+      return '<button class="show" data-show="' + x.id + '">' +
+        '<div class="frame wide">' + (cover ? '<img loading="lazy" alt="" src="' + esc(cover) + '">' : '<span class="none">No images</span>') + "</div>" +
+        '<div class="meta">' +
+        (isOn(x) ? '<span class="now">Now on</span>' : isUpcoming(x) ? '<span class="now soon">Upcoming</span>' : "") +
+        '<span class="title">' + esc(x.name) + "</span>" +
+        (x.artists.length ? '<span class="artist">' + esc(x.artists.join(", ")) + "</span>" : "") +
+        '<span class="row"><span>' + esc([where, showDates(x)].filter(Boolean).join(", ")) + "</span></span>" +
+        '<span class="row"><span>' + works.length + (works.length === 1 ? " work" : " works") + (avail ? ", " + avail + " available" : "") + "</span></span>" +
+        "</div></button>";
+    }).join("") + "</div>";
+    el.onclick = function (e) {
+      var b = e.target.closest("[data-show]"); if (b) openShow(b.getAttribute("data-show"));
+    };
+  }
+
+  function openShow(id, fromPop) {
+    if (!showById(id)) return;
+    state.show = id;
+    if (!fromPop) history.pushState({ show: id }, "", location.pathname);
+    document.body.style.overflow = "hidden";
+    paintShow();
+    var el = document.querySelector(".show-page");
+    if (el && !fromPop) el.scrollTop = 0;
+  }
+  function closeShow() {
+    state.show = null;
+    var slot = document.getElementById("show-slot");
+    if (slot) slot.innerHTML = "";
+    if (!state.detail) document.body.style.overflow = "";
+  }
+  // Also called after a refresh or a status change, so counts stay right
+  function paintShow() {
+    var x = showById(state.show);
+    var slot = document.getElementById("show-slot");
+    if (!x || !slot) return;
+    var prev = slot.querySelector(".show-page");
+    var keepScroll = prev ? prev.scrollTop : 0;
+    var works = showWorks(x.id);
+    var avail = works.filter(function (w) { return w.status === "Available"; });
+    var sold = works.filter(isSold);
+    var value = avail.reduce(function (t, w) { return t + (w.eur || 0); }, 0);
+    var where = [x.venue, x.city, x.country].filter(Boolean).join(", ");
+    slot.innerHTML =
+      '<article class="detail show-page" role="dialog" aria-modal="true" aria-label="' + esc(x.name) + '">' +
+      '<div class="top"><button class="icon-btn" data-back aria-label="Back to shows">' + I.back + '</button><span class="code">Exhibition</span><span class="icon-btn" aria-hidden="true"></span></div>' +
+      (x.views.length
+        ? '<div class="gallery short">' + x.views.map(function (p) { return '<img alt="" loading="lazy" src="' + esc(p.l) + '">'; }).join("") + "</div>" +
+          (x.views.length > 1 ? '<p class="gallery-count">' + x.views.length + " installation views, swipe</p>" : "")
+        : "") +
+      '<div class="info show-info">' +
+      "<div>" + (x.artists.length ? '<p class="artist">' + esc(x.artists.join(", ")) + "</p>" : "") +
+      "<h1>" + esc(x.name) + "</h1>" +
+      '<p class="artist">' + esc([where, showDates(x)].filter(Boolean).join(", ")) + "</p></div>" +
+      '<dl class="facts">' +
+      '<div class="fact"><dt>Works</dt><dd>' + works.length + "</dd></div>" +
+      '<div class="fact"><dt>Available</dt><dd>' + avail.length + (value ? ", " + esc(fmt(value)) + " at list price" : "") + "</dd></div>" +
+      (sold.length ? '<div class="fact"><dt>Sold</dt><dd>' + sold.length + "</dd></div>" : "") +
+      "</dl>" +
+      (x.text ? '<div class="press"><p class="press-text" id="press">' + esc(x.text) + '</p><button class="text-btn small" data-more>Read more</button></div>' : "") +
+      '<div class="foot">' +
+      (avail.length ? '<button class="btn primary" data-room>Viewing room with the available works</button><button class="btn" data-pickall>Select available</button>' : "") +
+      (works.length ? '<button class="btn" data-selmode>' + (state.selecting ? "Done selecting" : "Select works") + "</button>" : "") +
+      "</div>" +
+      "</div>" +
+      (works.length
+        ? '<div class="grid">' + works.map(card).join("") + "</div>"
+        : '<p class="empty">No works linked to this show in Airtable.</p>') +
+      "</article>";
+    var page = slot.querySelector(".show-page");
+    page.scrollTop = keepScroll;
+    var press = slot.querySelector("#press");
+    if (press && press.scrollHeight <= press.clientHeight + 2) slot.querySelector("[data-more]").remove();
+    page.onclick = function (e) {
+      if (e.target.closest("[data-back]")) { history.back(); return; }
+      if (e.target.closest("[data-more]")) { press.classList.add("open"); e.target.closest("[data-more]").remove(); return; }
+      if (e.target.closest("[data-room]")) { roomSheet(avail, x.name); return; }
+      if (e.target.closest("[data-selmode]")) {
+        state.selecting = !state.selecting; renderFilters(); renderList(); paintShow(); renderTray();
+        return;
+      }
+      if (e.target.closest("[data-pickall]")) {
+        avail.forEach(function (w) { if (state.selected.indexOf(w.id) < 0) state.selected.push(w.id); });
+        state.selecting = true; renderFilters(); renderList(); renderTray(); paintShow();
+        toast(avail.length + " works selected");
+        return;
+      }
+      var c = e.target.closest(".card[data-id]");
+      if (c) { if (state.selecting) toggleSelect(c.getAttribute("data-id")); else openDetail(c.getAttribute("data-id")); }
+    };
+  }
+
   // ---------- detail ----------
   function openDetail(id, fromPop) {
     var w = byId(id); if (!w) return;
@@ -761,7 +938,6 @@
       ["Size", dims(w, "\n")],
       ["Edition", w.edition],
       ["Code", w.code],
-      ["Shown in", w.exhibitions.join("\n")],
       ["Collector", w.owner],
       ["Sold for", [fmt(w.soldEur, "EUR"), fmt(w.soldUsd, "USD"), fmt(w.soldGbp, "GBP")].filter(Boolean).join(", ")],
       ["Paid to artist", isSold(w) ? w.paidArtist || "Not recorded" : ""],
@@ -781,7 +957,16 @@
       '<div class="info">' +
       '<div><p class="artist">' + esc(w.artist) + '</p><h1>' + esc(w.title) + (w.year ? '<span class="year">, ' + esc(w.year) + "</span>" : "") + "</h1></div>" +
       (w.eur ? '<p class="bigprice">' + esc(fmt(w.eur)) + (other ? "<small>" + esc(other) + "</small>" : "") + "</p>" : "") +
-      '<dl class="facts">' + facts.map(function (r) { return '<div class="fact"><dt>' + r[0] + "</dt><dd>" + esc(r[1]) + "</dd></div>"; }).join("") + "</dl>" +
+      '<dl class="facts">' + facts.map(function (r) { return '<div class="fact"><dt>' + r[0] + "</dt><dd>" + esc(r[1]) + "</dd></div>"; }).join("") +
+      (function () {
+        // Linked shows open their page; old tag-only names stay plain text
+        var linked = (w.exhibitionIds || []).map(showById).filter(Boolean);
+        var items = linked.length
+          ? linked.map(function (x) { return '<button class="show-link" data-goshow="' + x.id + '">' + esc(x.name) + "</button>"; }).join("")
+          : w.exhibitions.map(esc).join("<br>");
+        return items ? '<div class="fact"><dt>Shown in</dt><dd>' + items + "</dd></div>" : "";
+      })() +
+      "</dl>" +
       '<div><p class="group-label">Status</p><div class="segment" id="seg-status">' +
       STATUSES.map(function (s) { return '<button data-status="' + s + '" aria-pressed="' + (statusNow === s) + '">' + s + "</button>"; }).join("") +
       "</div></div>" +
@@ -805,6 +990,16 @@
     }, { passive: true });
     d.onclick = function (e) {
       if (e.target.closest("[data-close]")) { history.back(); return; }
+      var gs = e.target.closest("[data-goshow]");
+      if (gs) {
+        // Replace the work with the show in history, so back returns to the list
+        var sid = gs.getAttribute("data-goshow");
+        closeDetail();
+        history.replaceState({ show: sid }, "", location.pathname);
+        state.show = sid; document.body.style.overflow = "hidden"; paintShow();
+        var pg = document.querySelector(".show-page"); if (pg) pg.scrollTop = 0;
+        return;
+      }
       if (e.target.closest("[data-pick]")) {
         toggleSelect(id);
         e.target.closest("[data-pick]").textContent = state.selected.indexOf(id) >= 0 ? "Remove from selection" : "Add to selection";
@@ -868,7 +1063,7 @@
     api("/api/stock/update", { method: "POST", body: JSON.stringify(Object.assign({ id: w.id }, change)) })
       .then(function (r) {
         w.notes = r.notes || "";
-        writeCache({ at: state.loadedAt, hasLocation: state.hasLocation, works: state.works });
+        writeCache({ at: state.loadedAt, hasLocation: state.hasLocation, works: state.works, shows: state.shows });
         toast(change.note ? "Note added" : "Notes saved");
         done(true);
       })
@@ -886,7 +1081,7 @@
     api("/api/stock/update", { method: "POST", body: JSON.stringify(Object.assign({ id: w.id }, change)) })
       .then(function () {
         toast(change.status ? "Marked " + change.status.toLowerCase() : "Location saved");
-        writeCache({ at: state.loadedAt, hasLocation: state.hasLocation, works: state.works });
+        writeCache({ at: state.loadedAt, hasLocation: state.hasLocation, works: state.works, shows: state.shows });
       })
       .catch(function (err) {
         w.status = before.status; w.location = before.location; after(); renderBody();
@@ -899,12 +1094,15 @@
     state.detail = null;
     var slot = document.getElementById("detail-slot");
     if (slot) slot.innerHTML = "";
-    document.body.style.overflow = "";
+    if (!state.show) document.body.style.overflow = "";
   }
 
   window.addEventListener("popstate", function (e) {
-    if (e.state && e.state.work) openDetail(e.state.work, true);
-    else closeDetail();
+    var st = e.state || {};
+    if (st.work) { openDetail(st.work, true); return; }
+    closeDetail();
+    if (st.show) { if (state.show !== st.show) openShow(st.show, true); }
+    else closeShow();
   });
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Escape") return;

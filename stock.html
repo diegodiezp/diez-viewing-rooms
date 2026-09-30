@@ -66,6 +66,9 @@ em, .title { font-style: italic; }
 }
 .bar { display: flex; align-items: center; gap: 12px; padding: 12px var(--pad) 8px; }
 .brand { font-weight: 700; font-size: 15px; letter-spacing: -.01em; white-space: nowrap; }
+.tabs { display: flex; gap: 14px; flex-shrink: 0; }
+.tabs button { font-size: 15px; color: var(--faint); padding: 4px 0; }
+.tabs button[aria-selected="true"] { color: var(--ink); font-weight: 700; }
 .search {
   flex: 1; min-width: 0; border: 0; background: var(--wash);
   border-radius: 999px; padding: 9px 14px; font-size: 16px;
@@ -129,6 +132,29 @@ em, .title { font-style: italic; }
 .card.picked .pick { background: var(--ink); }
 .card.picked .pick svg { opacity: 1; stroke: var(--paper); }
 .card.picked .frame { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+/* ---------- shows ---------- */
+.shows {
+  display: grid; gap: 34px 20px; grid-template-columns: 1fr;
+  padding: 10px var(--pad) calc(120px + var(--bottom));
+}
+@media (min-width: 640px) { .shows { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 44px 28px; } }
+.show { display: block; width: 100%; text-align: left; align-self: start; }
+.frame.wide { aspect-ratio: 4 / 3; }
+.frame.wide img { object-fit: cover; }
+.show .title { font-size: 19px; -webkit-line-clamp: 3; }
+.now { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink); padding-bottom: 2px; }
+.now.soon { color: var(--quiet); }
+.show-page { z-index: 25; }
+.show-page .grid { padding-top: 24px; }
+.show-info { padding-top: 18px; }
+.gallery.short img { height: min(46vh, 520px); object-fit: cover; }
+.show-page .gallery-count { padding-bottom: 4px; }
+.show-link { display: block; text-align: left; text-decoration: underline; text-underline-offset: 4px; padding: 2px 0; }
+.press-text { white-space: pre-line; font-size: 14px; line-height: 1.55; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+.press-text.open { display: block; }
+.press { display: grid; gap: 6px; }
+@media (min-width: 900px) { .show-info { max-width: 720px; padding: 18px 32px 0; } }
 
 /* ---------- to scale ---------- */
 .scale-wrap { padding: 10px var(--pad) calc(120px + var(--bottom)); }
