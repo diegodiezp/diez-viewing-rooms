@@ -20,6 +20,7 @@ const ALLOWED_FIELDS = {
     "Artworks 1", "Installation Views 1",
     "Artworks 2", "Installation Views 2",
     "Artworks 3", "Installation Views 3",
+    "Related Cards",
   ],
   "tblK8xDtKmakHWt6k": [
     "Title", "Year", "Info (Backup)", "Status",

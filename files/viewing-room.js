@@ -1,3 +1,4 @@
+function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
 // Source for the viewing room app. viewing-room.html loads the compiled
 // version from /files/viewing-room.js — after editing this file, regenerate
 // it with `npm run compile` and commit both files.
@@ -50,6 +51,13 @@ function trackEngagement(event_type, artwork_id, artwork_title) {
     // Tracking must never break the user experience
     console.warn('Engagement tracking failed:', err);
   }
+}
+
+// Link to another viewing room. Keeps the ?t= tracking token so an
+// identified collector stays identified when moving between rooms.
+function roomHref(slug) {
+  const q = TRACKING_TOKEN ? '?t=' + encodeURIComponent(TRACKING_TOKEN) : '';
+  return '/' + encodeURIComponent(slug) + q;
 }
 
 // Active-time tracking. Counts seconds only while the tab is visible AND the
@@ -638,6 +646,65 @@ function IntroText({
 }
 
 // ── LANDING ───────────────────────────────────────────────────────────────────
+// "Also on view": links to other viewing rooms, set per room in Airtable via
+// the "Related Rooms" link field. Each opens as its own room (never merged).
+// Mobile: same tab (back button returns). Desktop: new tab, so this room
+// stays open behind.
+function RelatedRooms({
+  items,
+  isMobile
+}) {
+  if (!items?.length) return null;
+  const tabProps = isMobile ? {} : {
+    target: '_blank',
+    rel: 'noopener noreferrer'
+  };
+  return /*#__PURE__*/React.createElement("section", {
+    style: {
+      padding: isMobile ? '8px 20px 40px' : '16px 48px 48px'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "divider",
+    style: {
+      marginBottom: 20
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "subtitle-gray",
+    style: {
+      marginBottom: 14
+    }
+  }, "Also on view"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 10
+    }
+  }, items.map(r => /*#__PURE__*/React.createElement("a", _extends({
+    key: r.slug,
+    href: roomHref(r.slug)
+  }, tabProps, {
+    onClick: () => trackEngagement('Related Room Click', null, r.slug),
+    style: {
+      fontFamily: "'Replica', sans-serif",
+      fontSize: isMobile ? 18 : 22,
+      color: '#000000',
+      textDecoration: 'none',
+      width: 'fit-content',
+      lineHeight: 1.3,
+      borderBottom: '1px solid #000000',
+      paddingBottom: 1,
+      transition: 'color 0.15s'
+    },
+    onMouseEnter: e => {
+      e.currentTarget.style.color = '#666666';
+      e.currentTarget.style.borderBottomColor = '#666666';
+    },
+    onMouseLeave: e => {
+      e.currentTarget.style.color = '#000000';
+      e.currentTarget.style.borderBottomColor = '#000000';
+    }
+  }), r.name, " \u2192"))));
+}
 function Landing({
   room,
   works,
@@ -784,7 +851,10 @@ function Landing({
   }))), room.installViews?.length > 0 && /*#__PURE__*/React.createElement(InstallationViews, {
     images: room.installViews,
     isMobile: isMobile
-  })), /*#__PURE__*/React.createElement("footer", {
+  })), /*#__PURE__*/React.createElement(RelatedRooms, {
+    items: room.related,
+    isMobile: isMobile
+  }), /*#__PURE__*/React.createElement("footer", {
     style: {
       padding: isMobile ? '40px 20px' : '48px 48px',
       display: 'flex',
@@ -1512,6 +1582,15 @@ function App() {
           fullUrl: '/api/attachment?id=' + vrRecordId + '&field=Installation%20Views&index=' + i + '&size=full',
           filename: att.filename || 'Installation view'
         })),
+        // "Related Cards" is a lookup of each linked room's "Link Card"
+        // formula ("slug|Name", empty when archived or expired).
+        related: (vr['Related Cards'] || []).filter(Boolean).map(c => {
+          const i = c.indexOf('|');
+          return {
+            slug: c.slice(0, i),
+            name: c.slice(i + 1)
+          };
+        }).filter(r => r.slug && r.name && r.slug !== slug),
         sections: [] // filled below, once the artworks are loaded and ordered
       });
       const awFormula = 'OR(' + artworkIds.map(id => `RECORD_ID()="${id}"`).join(',') + ')';
@@ -1605,7 +1684,7 @@ function App() {
 
       // Funnel entry point: log that this identified recipient opened the room.
       // Anonymous visitors (no ?t= in URL) are silently ignored by the helper.
-      trackEngagement('Viewing Room Open');
+      trackEngagement('Viewing Room Open', null, slug);
       startActiveTimeTracking();
 
       // Preload detail images in background

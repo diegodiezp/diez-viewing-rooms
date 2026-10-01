@@ -44,6 +44,13 @@ function trackEngagement(event_type, artwork_id, artwork_title) {
   }
 }
 
+// Link to another viewing room. Keeps the ?t= tracking token so an
+// identified collector stays identified when moving between rooms.
+function roomHref(slug) {
+  const q = TRACKING_TOKEN ? '?t=' + encodeURIComponent(TRACKING_TOKEN) : '';
+  return '/' + encodeURIComponent(slug) + q;
+}
+
 // Active-time tracking. Counts seconds only while the tab is visible AND the
 // visitor has interacted in the last 60 s, and reports the running TOTAL every
 // 15 s to diez-mail, which keeps one Email Events row per session up to date.
@@ -462,6 +469,34 @@ function IntroText({ text }) {
 }
 
 // ── LANDING ───────────────────────────────────────────────────────────────────
+// "Also on view": links to other viewing rooms, set per room in Airtable via
+// the "Related Rooms" link field. Each opens as its own room (never merged).
+// Mobile: same tab (back button returns). Desktop: new tab, so this room
+// stays open behind.
+function RelatedRooms({ items, isMobile }) {
+  if (!items?.length) return null;
+  const tabProps = isMobile ? {} : { target: '_blank', rel: 'noopener noreferrer' };
+  return (
+    <section style={{ padding: isMobile ? '8px 20px 40px' : '16px 48px 48px' }}>
+      <div className="divider" style={{ marginBottom:20 }}/>
+      <div className="subtitle-gray" style={{ marginBottom:14 }}>Also on view</div>
+      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        {items.map(r => (
+          <a key={r.slug} href={roomHref(r.slug)} {...tabProps}
+            onClick={() => trackEngagement('Related Room Click', null, r.slug)}
+            style={{ fontFamily:"'Replica', sans-serif", fontSize: isMobile ? 18 : 22,
+              color:'#000000', textDecoration:'none', width:'fit-content', lineHeight:1.3,
+              borderBottom:'1px solid #000000', paddingBottom:1, transition:'color 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.color='#666666'; e.currentTarget.style.borderBottomColor='#666666'; }}
+            onMouseLeave={e => { e.currentTarget.style.color='#000000'; e.currentTarget.style.borderBottomColor='#000000'; }}>
+            {r.name} →
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function Landing({ room, works, onSelect }) {
   const { isMobile } = useViewport();
 
@@ -538,6 +573,7 @@ function Landing({ room, works, onSelect }) {
           )}
         </>
       )}
+      <RelatedRooms items={room.related} isMobile={isMobile} />
       <footer style={{ padding: isMobile ? '40px 20px' : '48px 48px',
         display:'flex', flexWrap:'wrap', justifyContent:'space-between', alignItems:'center',
         gap: isMobile ? '12px' : '24px',
@@ -942,6 +978,12 @@ function App() {
           fullUrl: '/api/attachment?id=' + vrRecordId + '&field=Installation%20Views&index=' + i + '&size=full',
           filename: att.filename || 'Installation view',
         })),
+        // "Related Cards" is a lookup of each linked room's "Link Card"
+        // formula ("slug|Name", empty when archived or expired).
+        related: (vr['Related Cards'] || [])
+          .filter(Boolean)
+          .map(c => { const i = c.indexOf('|'); return { slug: c.slice(0, i), name: c.slice(i + 1) }; })
+          .filter(r => r.slug && r.name && r.slug !== slug),
         sections: [], // filled below, once the artworks are loaded and ordered
       });
 
@@ -1018,7 +1060,7 @@ function App() {
 
       // Funnel entry point: log that this identified recipient opened the room.
       // Anonymous visitors (no ?t= in URL) are silently ignored by the helper.
-      trackEngagement('Viewing Room Open');
+      trackEngagement('Viewing Room Open', null, slug);
       startActiveTimeTracking();
 
       // Preload detail images in background
