@@ -3,7 +3,7 @@
 const { MAIL, requireSession, mail } = require("../_lib/stock");
 
 module.exports = async function handler(req, res) {
-  if (!requireSession(req, res)) return;
+  if (!requireSession(req, res, { admin: true })) return;
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
   // Only letters, digits, spaces and a few email characters reach the formula
