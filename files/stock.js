@@ -527,6 +527,12 @@
     var slot = document.getElementById("sheet-slot");
     slot.innerHTML = '<div class="veil" data-close></div><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>' + inner + "</div>";
     slot.querySelector(".veil").onclick = closeSheet;
+    // Sheets opened from a work (Edit, sale) must sit above the work view,
+    // which covers the page at z-index 60. Still below toasts (80).
+    if (state.detail) {
+      slot.querySelector(".veil").style.zIndex = "70";
+      slot.querySelector(".sheet").style.zIndex = "75";
+    }
     if (onReady) onReady(slot.querySelector(".sheet"));
     var first = slot.querySelector(".sheet button, .sheet input");
     if (first && window.matchMedia("(min-width: 720px)").matches) first.focus();
