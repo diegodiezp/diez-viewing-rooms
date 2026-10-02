@@ -25,6 +25,7 @@ const ALLOWED_FIELDS = {
   "tblK8xDtKmakHWt6k": [
     "Title", "Year", "Info (Backup)", "Status",
     "Price €", "Artist name", "Artist Index", "Details",
+    "Year (display)",
   ],
   "tbl3fHryX8bPSYMyN": ["Name"],
 };
