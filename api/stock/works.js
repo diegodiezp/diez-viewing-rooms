@@ -100,6 +100,9 @@ async function build() {
         h: f[F.height] || null,
         w: f[F.width] || null,
         d: f[F.depth] || null,
+        fh: f[F.framedHeight] || null,
+        fw: f[F.framedWidth] || null,
+        fd: f[F.framedDepth] || null,
         edition: f[F.edition] || "",
         eur: f[F.priceEur] ?? null,
         usd: f[F.priceUsd] ?? null,
@@ -108,6 +111,7 @@ async function build() {
         soldUsd: f[F.soldUsd] ?? null,
         soldGbp: f[F.soldGbp] ?? null,
         owner: (f[F.owner] || []).map((id) => clientName.get(id)).filter(Boolean).join(", "),
+        ownerIds: f[F.owner] || [],
         code: f[F.inventory] || "",
         notes: f[F.notes] || "",
         paidArtist: f[F.paidArtist] || "",
@@ -128,18 +132,36 @@ async function build() {
   return { at: new Date().toISOString(), hasLocation, works: out, shows };
 }
 
+// "notes" sessions (fairs, assistants) see the works and prices but not who
+// bought what, what it sold for, what was paid to the artist, or the
+// invoices and certificates. Trimmed here, on the server, so it never
+// reaches their phone. To let them see one of these, delete it from this list.
+function forRole(data, role) {
+  if (role === "admin") return { ...data, role };
+  return {
+    ...data,
+    role,
+    works: data.works.map((w) => ({
+      ...w,
+      soldEur: null, soldUsd: null, soldGbp: null,
+      owner: "", ownerIds: [], paidArtist: "", docs: [],
+    })),
+  };
+}
+
 module.exports = async function handler(req, res) {
-  if (!requireSession(req, res)) return;
+  const role = requireSession(req, res);
+  if (!role) return;
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
   try {
     const fresh = req.query.fresh === "1";
     if (!fresh && memo.data && Date.now() - memo.at < TTL) {
-      return res.status(200).json(memo.data);
+      return res.status(200).json(forRole(memo.data, role));
     }
     const data = await build();
     memo = { at: Date.now(), data };
-    return res.status(200).json(data);
+    return res.status(200).json(forRole(data, role));
   } catch (err) {
     console.error("stock works error:", err.message);
     return res.status(502).json({ error: "Could not load the inventory from Airtable" });
