@@ -1024,7 +1024,8 @@ function App() {
         const price = f['Price €'] || f['Price'] || null;
         return {
           id: aw.id, title: f['Title'] || 'Untitled', artist: artistName,
-          year: f['Year'] || '', info: f['Info (Backup)'] || '',
+          // "Year (display)" is a formula in Artworks: "2019" or "2019–2021" when Year end is set.
+          year: f['Year (display)'] || f['Year'] || '', info: f['Info (Backup)'] || '',
           imageUrl: '/api/image?id=' + aw.id + '&size=large',
           imageUrlFull: '/api/image?id=' + aw.id + '&size=full',
           detailUrls: f['Details'] ? Array.from({length: f['Details'].length}, (_, i) => '/api/image?id=' + aw.id + '&field=Details&index=' + i + '&size=full') : [],
