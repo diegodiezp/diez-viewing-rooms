@@ -25,7 +25,7 @@ async function findByEmail(email) {
 }
 
 module.exports = async function handler(req, res) {
-  if (!requireSession(req, res)) return;
+  if (!requireSession(req, res, { admin: true })) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   if (!sameOrigin(req)) return res.status(403).json({ error: "Forbidden" });
 
