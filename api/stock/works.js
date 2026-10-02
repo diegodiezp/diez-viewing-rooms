@@ -91,6 +91,8 @@ async function build() {
         artistIds,
         artist: artistIds.map((id) => artistName.get(id)).filter(Boolean).join(", "),
         year: f[F.year] || null,
+        ye: f[F.yearEnd] || null,
+        vd: !!f[F.variableDims],
         status: (f[F.status] || "").trim(),
         location: f[F.location] || "",
         technique: f[F.technique] || "",
