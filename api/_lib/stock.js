@@ -8,7 +8,7 @@
 (function () {
   "use strict";
 
-  var CACHE_KEY = "diez-stock-data-v2"; // bumped: payload gained ye (year end) and vd (variable dimensions)
+  var CACHE_KEY = "diez-stock-data-v4"; // bumped: payload gained ye, vd, fh/fw/fd, ownerIds and role
   // Data younger than this is shown as is, without asking Airtable again.
   // Saves API calls when the app is opened many times in a row (fairs).
   // The refresh button always fetches fresh data.
@@ -30,6 +30,7 @@
 
   var state = {
     works: [],
+    role: "admin", // "admin" edits everything; "notes" can only read and add notes (enforced by the server)
     loadedAt: null,
     hasLocation: false,
     shows: [],
@@ -84,9 +85,35 @@
     return cm + " cm" + (sep || " / ") + inches + " in";
   }
   function rank(list, v) { var i = list.indexOf(v); return i < 0 ? 99 : i; }
-  function longest(w) { return Math.max(w.h || 0, w.w || 0, w.d || 0); }
+  // Size with frame, same format as dims(). Empty unless framed height and width are set.
+  function framed(w, sep) {
+    if (w.vd || !w.fh || !w.fw) return "";
+    var cm = [w.fh, w.fw, w.fd].filter(Boolean).join(" x ");
+    var inches = [w.fh, w.fw, w.fd].filter(Boolean).map(inch).join(" x ");
+    return cm + " cm" + (sep || " / ") + inches + " in";
+  }
+  // The frame is part of the work: when a framed size exists it is the size
+  // that counts for the scale view, the size filter and the size sort.
+  function isFramed(w) { return !w.vd && !!(w.fh && w.fw); }
+  function outer(w) {
+    if (isFramed(w)) return { h: w.fh, w: w.fw, d: w.fd || 0, framed: true };
+    if (!w.vd && w.h && w.w) return { h: w.h, w: w.w, d: w.d || 0, framed: false };
+    return null;
+  }
+  function longest(w) {
+    var o = outer(w);
+    return o ? Math.max(o.h, o.w, o.d) : Math.max(w.h || 0, w.w || 0, w.d || 0);
+  }
+  // Size line for the grid card: the work, plus the framed size when there is one.
+  function cardSize(w) {
+    if (w.vd) return "Variable dimensions";
+    var a = w.h && w.w ? w.h + " x " + w.w + " cm" : "";
+    var f = isFramed(w) ? w.fh + " x " + w.fw + " cm" : "";
+    return a && f ? a + " (framed " + f + ")" : (a || (f ? "Framed " + f : ""));
+  }
   function byId(id) { for (var i = 0; i < state.works.length; i++) if (state.works[i].id === id) return state.works[i]; return null; }
   function isSold(w) { return w.status === "Sold"; }
+  function isAdmin() { return state.role !== "notes"; }
   function isHeld(w) { return w.status === "On hold" || w.status === "Offered"; }
   function caption(w) {
     var lines = [];
@@ -94,6 +121,7 @@
     lines.push(w.title + (yr(w) ? ", " + yr(w) : ""));
     if (w.technique) lines.push(w.technique);
     if (dims(w)) lines.push(dims(w));
+    if (framed(w)) lines.push("Framed: " + framed(w));
     if (w.edition) lines.push(w.edition);
     if (w.eur && !isSold(w)) lines.push(fmt(w.eur, "EUR") + " (excl. VAT)");
     return lines.join("\n");
@@ -182,12 +210,15 @@
   function readCache() {
     try {
       var c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
-      if (c && c.works) { state.works = c.works; state.shows = c.shows || []; state.loadedAt = c.at; state.hasLocation = !!c.hasLocation; return true; }
+      if (c && c.works) { state.works = c.works; state.shows = c.shows || []; state.loadedAt = c.at; state.hasLocation = !!c.hasLocation; state.role = c.role || "admin"; return true; }
     } catch (e) {}
     return false;
   }
   function writeCache(data) {
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch (e) {}
+  }
+  function saveCache() {
+    writeCache({ at: state.loadedAt, hasLocation: state.hasLocation, works: state.works, shows: state.shows, role: state.role });
   }
   function api(path, opts) {
     return fetch(path, Object.assign({ credentials: "same-origin", headers: { "Content-Type": "application/json" } }, opts || {}))
@@ -203,7 +234,7 @@
     state.loading = true; paintRefresh();
     return api("/api/stock/works" + (fresh ? "?fresh=1" : ""))
       .then(function (data) {
-        state.works = data.works; state.shows = data.shows || []; state.loadedAt = data.at; state.hasLocation = !!data.hasLocation;
+        state.works = data.works; state.shows = data.shows || []; state.loadedAt = data.at; state.hasLocation = !!data.hasLocation; state.role = data.role || "admin";
         if (!state.hasLocation) state.f.location = [];
         writeCache(data);
         state.loading = false;
@@ -284,7 +315,12 @@
       var btn = e.target.querySelector("button");
       btn.disabled = true;
       api("/api/stock/login", { method: "POST", body: JSON.stringify({ password: document.getElementById("pw").value }) })
-        .then(function () { renderShell(); load(true); })
+        .then(function (r) {
+          // Whatever the previous account left on this phone must not outlive the sign-in
+          state.works = []; state.shows = []; state.loadedAt = null; state.role = r.role || "admin";
+          try { localStorage.removeItem(CACHE_KEY); } catch (e) {}
+          renderShell(); load(true);
+        })
         .catch(function (err) { renderLogin(err.auth ? "Wrong password" : err.message); });
     });
   }
@@ -421,7 +457,7 @@
       '<div class="meta">' +
       '<span class="artist">' + esc(w.artist || "Unknown artist") + "</span>" +
       '<span class="title">' + esc(w.title) + "</span>" +
-      '<span class="row"><span>' + esc([yr(w), w.vd ? "Variable dimensions" : (w.h && w.w ? w.h + " x " + w.w + " cm" : "")].filter(Boolean).join(", ")) + '</span><span class="price">' + price + "</span></span>" +
+      '<span class="row"><span>' + esc([yr(w), cardSize(w)].filter(Boolean).join(", ")) + '</span><span class="price">' + price + "</span></span>" +
       "</div></button>";
   }
 
@@ -455,7 +491,7 @@
 
   // ---------- to scale ----------
   function renderScale(el, list) {
-    var sized = list.filter(function (w) { return w.h && w.w && !w.vd; });
+    var sized = list.filter(function (w) { return outer(w); });
     var missing = list.length - sized.length;
     var fit = Math.max(0.4, Math.min(3, (window.innerWidth - 60) / 260));
     var k = state.scale || Math.round(fit * 10) / 10;
@@ -464,11 +500,11 @@
       '<div class="scale">' +
       '<div class="ruler" aria-hidden="true"><span class="metre" style="height:' + 100 * k + 'px"></span><span class="cap">1 m<br>&nbsp;</span></div>' +
       sized.map(function (w) {
-        var img = w.img[0];
+        var img = w.img[0], o = outer(w);
         return '<button class="piece" data-id="' + w.id + '">' +
-          '<span class="box" style="width:' + (w.w * k).toFixed(1) + "px;height:" + (w.h * k).toFixed(1) + 'px">' +
+          '<span class="box" style="width:' + (o.w * k).toFixed(1) + "px;height:" + (o.h * k).toFixed(1) + 'px">' +
           (img ? '<img loading="lazy" alt="" src="' + esc(img.s) + '">' : "") + "</span>" +
-          '<span class="cap"><i>' + esc(w.title) + "</i><br>" + esc(w.h + " x " + w.w + " cm") + "</span></button>";
+          '<span class="cap"><i>' + esc(w.title) + "</i><br>" + esc(o.h + " x " + o.w + " cm" + (o.framed ? " (framed)" : "")) + "</span></button>";
       }).join("") +
       "</div>" +
       (missing ? '<p class="scale-note">' + missing + " " + (missing === 1 ? "work has" : "works have") + " no fixed dimensions in Airtable and " + (missing === 1 ? "is" : "are") + " not shown.</p>" : "") + "</div>";
@@ -479,8 +515,8 @@
       var sc = state.scale;
       el.querySelectorAll(".piece").forEach(function (p) {
         var w = byId(p.getAttribute("data-id"));
-        var box = p.querySelector(".box");
-        box.style.width = (w.w * sc).toFixed(1) + "px"; box.style.height = (w.h * sc).toFixed(1) + "px";
+        var box = p.querySelector(".box"), o = outer(w);
+        box.style.width = (o.w * sc).toFixed(1) + "px"; box.style.height = (o.h * sc).toFixed(1) + "px";
       });
       el.querySelector(".ruler .metre").style.height = 100 * sc + "px";
     };
@@ -586,7 +622,7 @@
       '<button data-a="clear">Clear</button>' +
       '<button data-a="copy">Copy list</button>' +
       '<button data-a="print">Tearsheet</button>' +
-      '<button class="primary" data-a="room">Viewing room</button>' +
+      (isAdmin() ? '<button class="primary" data-a="room">Viewing room</button>' : "") +
       "</div>";
     slot.firstChild.onclick = function (e) {
       var b = e.target.closest("[data-a]"); if (!b) return;
@@ -771,7 +807,7 @@
         var img = w.img[0];
         return '<div class="item">' + (img ? '<img src="' + esc(img.l) + '" alt="">' : "<div></div>") +
           '<div><div class="a">' + esc(w.artist) + '</div><div class="t">' + esc(w.title) + (yr(w) ? '<span style="font-style:normal">, ' + esc(yr(w)) + "</span>" : "") + "</div>" +
-          "<div>" + esc(w.technique) + "</div><div>" + esc(dims(w)) + "</div>" + (w.edition ? "<div>" + esc(w.edition) + "</div>" : "") +
+          "<div>" + esc(w.technique) + "</div><div>" + esc(dims(w)) + "</div>" + (framed(w) ? "<div>" + esc("Framed: " + framed(w)) + "</div>" : "") + (w.edition ? "<div>" + esc(w.edition) + "</div>" : "") +
           (w.eur && !isSold(w) ? '<div class="p">' + esc(fmt(w.eur)) + " excl. VAT</div>" : "") +
           "</div></div>";
       }).join("") +
@@ -912,7 +948,7 @@
       "</dl>" +
       (x.text ? '<div class="press"><p class="press-text" id="press">' + esc(x.text) + '</p><button class="text-btn small" data-more>Read more</button></div>' : "") +
       '<div class="foot">' +
-      (avail.length ? '<button class="btn primary" data-room>Viewing room with the available works</button><button class="btn" data-pickall>Select available</button>' : "") +
+      (avail.length ? '' + (isAdmin() ? '<button class="btn primary" data-room>Viewing room with the available works</button>' : "") + '<button class="btn' + (isAdmin() ? "" : " primary") + '" data-pickall>Select available</button>' : "") +
       (works.length ? '<button class="btn" data-selmode>' + (state.selecting ? "Done selecting" : "Select works") + "</button>" : "") +
       "</div>" +
       "</div>" +
@@ -1136,6 +1172,7 @@
     var facts = [
       ["Medium", w.technique],
       ["Size", dims(w, "\n")],
+      ["Framed", framed(w, "\n")],
       ["Edition", w.edition],
       ["Code", w.code],
       ["Collector", w.owner],
@@ -1167,17 +1204,13 @@
         return items ? '<div class="fact"><dt>Shown in</dt><dd>' + items + "</dd></div>" : "";
       })() +
       "</dl>" +
-      '<div><p class="group-label">Status</p><div class="segment" id="seg-status">' +
-      STATUSES.map(function (s) { return '<button data-status="' + s + '" aria-pressed="' + (statusNow === s) + '">' + s + "</button>"; }).join("") +
-      "</div></div>" +
-      (state.hasLocation ? '<div class="field"><label for="loc">Where it is</label><select id="loc"><option value="">Unknown</option>' +
-      LOCATIONS.map(function (l) { return "<option" + (w.location === l ? " selected" : "") + ">" + esc(l) + "</option>"; }).join("") +
-      "</select></div>" : "") +
+      statusBlock(w, statusNow) +
       '<div class="notes" id="notes"></div>' +
       (w.docs.length ? '<div class="docs"><p class="group-label">Documents</p>' + w.docs.map(function (d) { return '<a href="' + esc(d.url) + '" target="_blank" rel="noopener">' + esc(d.kind + ": " + d.name) + "</a>"; }).join("") + "</div>" : "") +
       '<div class="foot">' +
       '<button class="btn primary" data-pick>' + (picked ? "Remove from selection" : "Add to selection") + "</button>" +
       '<button class="btn" data-send>Send work</button>' +
+      (isAdmin() ? '<button class="btn" data-edit>Edit</button>' : "") +
       '<a class="btn" href="' + AIRTABLE_URL + w.id + '" target="_blank" rel="noopener">Open in Airtable</a>' +
       "</div></div></div></article>";
     document.body.style.overflow = "hidden";
@@ -1215,14 +1248,14 @@
         return;
       }
       if (e.target.closest("[data-send]")) { sendWork(w); return; }
+      if (e.target.closest("[data-edit]")) { editSheet(w); return; }
+      if (e.target.closest("[data-sale]")) { saleSheet(w, d); return; }
       var sb = e.target.closest("[data-status]");
       if (sb) {
         var next = sb.getAttribute("data-status");
         if (next === w.status) return;
-        if (next === "Sold" && !confirm("Mark this work as sold? Add the collector and sale price in Airtable afterwards.")) return;
-        write(w, { status: next }, function () {
-          d.querySelectorAll("[data-status]").forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-status") === w.status); });
-        });
+        if (next === "Sold") { saleSheet(w, d); return; }
+        write(w, { status: next }, function () { redrawDetail(w.id); });
       }
     };
     renderNotes(w);
@@ -1248,7 +1281,7 @@
         '<p class="group-label">Notes</p>' +
         '<form class="note-add" id="note-form"><input id="note-new" maxlength="2000" autocomplete="off" enterkeyhint="send" placeholder="Add a note" aria-label="New note">' +
         '<button class="btn primary" type="submit">Add</button></form>' +
-        (w.notes ? '<p class="note-text">' + esc(w.notes) + '</p><button class="text-btn small" data-n="edit">Edit notes</button>' : "");
+        (w.notes ? '<p class="note-text">' + esc(w.notes) + '</p>' + (isAdmin() ? '<button class="text-btn small" data-n="edit">Edit notes</button>' : "") : "");
       document.getElementById("note-form").onsubmit = function (e) {
         e.preventDefault();
         var input = document.getElementById("note-new");
@@ -1272,7 +1305,7 @@
     api("/api/stock/update", { method: "POST", body: JSON.stringify(Object.assign({ id: w.id }, change)) })
       .then(function (r) {
         w.notes = r.notes || "";
-        writeCache({ at: state.loadedAt, hasLocation: state.hasLocation, works: state.works, shows: state.shows });
+        saveCache();
         toast(change.note ? "Note added" : "Notes saved");
         done(true);
       })
@@ -1290,13 +1323,272 @@
     api("/api/stock/update", { method: "POST", body: JSON.stringify(Object.assign({ id: w.id }, change)) })
       .then(function () {
         toast(change.status ? "Marked " + change.status.toLowerCase() : "Location saved");
-        writeCache({ at: state.loadedAt, hasLocation: state.hasLocation, works: state.works, shows: state.shows });
+        saveCache();
       })
       .catch(function (err) {
         w.status = before.status; w.location = before.location; after(); renderBody();
         if (err.auth) { renderLogin("Signed out. Sign in again."); return; }
         toast(err.message);
       });
+  }
+
+
+  // ---------- status block (read-only for notes-only accounts) ----------
+  function statusBlock(w, statusNow) {
+    if (!isAdmin()) {
+      return '<div><p class="group-label">Status</p><p>' + esc(statusNow || "No status") + "</p></div>" +
+        (state.hasLocation && w.location ? '<div><p class="group-label">Where it is</p><p>' + esc(w.location) + "</p></div>" : "");
+    }
+    return '<div><p class="group-label">Status</p><div class="segment" id="seg-status">' +
+      STATUSES.map(function (s) { return '<button data-status="' + s + '" aria-pressed="' + (statusNow === s) + '">' + s + "</button>"; }).join("") +
+      "</div>" +
+      (isSold(w) ? '<button class="text-btn small" data-sale style="display:block;margin-top:10px">Edit sale details</button>' : "") +
+      "</div>" +
+      (state.hasLocation ? '<div class="field"><label for="loc">Where it is</label><select id="loc"><option value="">Unknown</option>' +
+      LOCATIONS.map(function (l) { return "<option" + (w.location === l ? " selected" : "") + ">" + esc(l) + "</option>"; }).join("") +
+      "</select></div>" : "");
+  }
+
+  // ---------- editing (admin only) ----------
+  // The server enforces this as well: a notes-only session gets a 403 on
+  // every one of these calls. Only the fields that changed are sent.
+  function parseNum(s, money) {
+    s = String(s == null ? "" : s).replace(/[\s\u00a0]/g, "");
+    if (!s) return null;
+    // For money, "12.500" and "12,500" both mean twelve thousand five hundred
+    if (money && /^\d{1,3}([.,]\d{3})+$/.test(s)) s = s.replace(/[.,]/g, "");
+    else s = s.replace(",", ".");
+    var n = Number(s);
+    return isFinite(n) ? n : NaN;
+  }
+  function numStr(v) { return v == null ? "" : String(v); }
+
+  var LOCAL_KEY = {
+    title: "title", year: "year", yearEnd: "ye", technique: "technique", edition: "edition",
+    height: "h", width: "w", depth: "d", framedHeight: "fh", framedWidth: "fw", framedDepth: "fd",
+    variableDims: "vd", soldEur: "soldEur", soldUsd: "soldUsd", soldGbp: "soldGbp", paidArtist: "paidArtist"
+  };
+  function applyLocal(w, change, extra) {
+    if (change.status !== undefined) w.status = change.status;
+    var set = change.set || {};
+    Object.keys(set).forEach(function (k) {
+      if (LOCAL_KEY[k]) w[LOCAL_KEY[k]] = set[k] === "" ? null : set[k];
+    });
+    if (set.owner) { w.ownerIds = set.owner; if (extra && extra.ownerName) w.owner = extra.ownerName; }
+  }
+
+  // Redraws the open work without losing the scroll position
+  function redrawDetail(id) {
+    if (state.detail !== id) return;
+    var el = document.querySelector(".detail"), top = el ? el.scrollTop : 0;
+    openDetail(id, true);
+    var n = document.querySelector(".detail"); if (n) n.scrollTop = top;
+  }
+
+  function saveWork(w, change, extra, done) {
+    api("/api/stock/update", { method: "POST", body: JSON.stringify(Object.assign({ id: w.id }, change)) })
+      .then(function () {
+        applyLocal(w, change, extra); saveCache(); renderBody();
+        toast((extra && extra.toast) || "Saved");
+        done(true);
+        // Airtable recalculates formulas (inventory code, year, sizes): pick that up
+        var id = w.id;
+        load(true).then(function () { redrawDetail(id); });
+      })
+      .catch(function (err) {
+        if (err.auth) { closeSheet(); renderLogin("Signed out. Sign in again."); return; }
+        toast(err.message); done(false);
+      });
+  }
+
+  function editSheet(w) {
+    var dec = 'inputmode="decimal" autocomplete="off"';
+    function f(label, id, val, attrs) {
+      return '<div class="field"><label for="' + id + '">' + label + '</label><input id="' + id + '" value="' + esc(val) + '" ' + (attrs || "") + "></div>";
+    }
+    function row3(a, b, c) { return '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">' + a + b + c + "</div>"; }
+    var LABEL = { year: "year", yearEnd: "year end", height: "height", width: "width", depth: "depth", framedHeight: "framed height", framedWidth: "framed width", framedDepth: "framed depth" };
+    var old = {
+      title: w.title, year: w.year || null, yearEnd: w.ye || null, technique: w.technique || null, edition: w.edition || null,
+      height: w.h || null, width: w.w || null, depth: w.d || null,
+      framedHeight: w.fh || null, framedWidth: w.fw || null, framedDepth: w.fd || null, variableDims: !!w.vd
+    };
+    sheet(
+      "<h2>Edit work</h2>" +
+      f("Title", "e-title", w.title, 'maxlength="200"') +
+      '<div class="two">' + f("Year", "e-year", numStr(w.year), 'inputmode="numeric" maxlength="4" autocomplete="off"') +
+      f("Year end (if between two years)", "e-ye", numStr(w.ye), 'inputmode="numeric" maxlength="4" autocomplete="off"') + "</div>" +
+      f("Medium (describe the frame here)", "e-tech", w.technique || "", 'maxlength="500"') +
+      f("Edition", "e-ed", w.edition || "", 'maxlength="200"') +
+      '<p class="group-label" style="padding-top:14px">Size in cm</p>' +
+      row3(f("Height", "e-h", numStr(w.h), dec), f("Width", "e-w", numStr(w.w), dec), f("Depth", "e-d", numStr(w.d), dec)) +
+      '<p class="group-label" style="padding-top:6px">Size with frame in cm (leave empty if not framed)</p>' +
+      row3(f("Height", "e-fh", numStr(w.fh), dec), f("Width", "e-fw", numStr(w.fw), dec), f("Depth", "e-fd", numStr(w.fd), dec)) +
+      '<label style="display:flex;gap:10px;align-items:center;padding:14px 0 4px"><input type="checkbox" id="e-vd"' + (w.vd ? " checked" : "") + "> Variable dimensions</label>" +
+      '<div class="actions"><button class="btn" data-cancel>Cancel</button><button class="btn primary" data-save>Save</button></div>',
+      function (s) {
+        s.querySelector("[data-cancel]").onclick = closeSheet;
+        s.querySelector("[data-save]").onclick = function () {
+          function v(id) { return s.querySelector("#" + id).value.trim(); }
+          function n(id) { return parseNum(v(id)); }
+          function dim(id) { var x = n(id); return x === null || isNaN(x) ? x : Math.round(x * 10) / 10; }
+          var next = {
+            title: v("e-title"), year: n("e-year"), yearEnd: n("e-ye"), technique: v("e-tech") || null, edition: v("e-ed") || null,
+            height: dim("e-h"), width: dim("e-w"), depth: dim("e-d"),
+            framedHeight: dim("e-fh"), framedWidth: dim("e-fw"), framedDepth: dim("e-fd"),
+            variableDims: s.querySelector("#e-vd").checked
+          };
+          var bad = null;
+          Object.keys(LABEL).forEach(function (k) {
+            var x = next[k];
+            if (x !== null && (isNaN(x) || x <= 0)) bad = bad || k;
+          });
+          if (bad) { toast("Check the " + LABEL[bad]); return; }
+          if (!next.title) { toast("The title cannot be empty"); return; }
+          ["year", "yearEnd"].forEach(function (k) {
+            var x = next[k];
+            if (x !== null && (Math.floor(x) !== x || x < 1000 || x > 2200)) bad = bad || k;
+          });
+          if (bad) { toast("Check the " + LABEL[bad]); return; }
+          if (next.yearEnd !== null && next.year === null) { toast("Add the year first"); return; }
+          if (next.yearEnd !== null && next.yearEnd <= next.year) { toast("Year end must be later than the year"); return; }
+          if ((next.height === null) !== (next.width === null)) { toast("Add both height and width"); return; }
+          var anyFramed = next.framedHeight !== null || next.framedWidth !== null || next.framedDepth !== null;
+          if (anyFramed && (next.framedHeight === null || next.framedWidth === null)) { toast("The framed size needs height and width"); return; }
+          var set = {};
+          Object.keys(next).forEach(function (k) { if (next[k] !== old[k]) set[k] = next[k]; });
+          if (!Object.keys(set).length) { closeSheet(); toast("Nothing changed"); return; }
+          var btn = s.querySelector("[data-save]"); btn.disabled = true;
+          saveWork(w, { set: set }, { toast: "Saved" }, function (ok) {
+            if (ok) { closeSheet(); redrawDetail(w.id); } else btn.disabled = false;
+          });
+        };
+      }
+    );
+  }
+
+  // ---------- sale (admin only) ----------
+  // Search buyers in the Clients table, or add a new one.
+  function buyerPicker(box, onPick) {
+    box.innerHTML =
+      '<div class="field"><label for="buyer">Sold to (optional)</label><input id="buyer" autocomplete="off" placeholder="Search a buyer by name or email"></div>' +
+      '<div class="people" id="buyers"></div>';
+    var input = box.querySelector("#buyer");
+    var list = box.querySelector("#buyers");
+    var t, seq = 0;
+    function newForm(prefill) {
+      var looksEmail = prefill.indexOf("@") > 0;
+      var parts = looksEmail ? ["", ""] : prefill.split(" ");
+      list.innerHTML =
+        '<div class="two"><div class="field"><label for="bf">First name</label><input id="bf" value="' + esc(parts[0] || "") + '"></div>' +
+        '<div class="field"><label for="bl">Last name</label><input id="bl" value="' + esc(parts.slice(1).join(" ")) + '"></div></div>' +
+        '<div class="field"><label for="be">Email (optional)</label><input id="be" type="email" inputmode="email" value="' + esc(looksEmail ? prefill : "") + '"></div>' +
+        '<div class="actions"><button class="btn primary" data-newok>Use this buyer</button></div>' +
+        '<p class="group-label">It is added to your Clients table. If that email already exists there, that client is used.</p>';
+      list.querySelector("[data-newok]").onclick = function (e) {
+        var first = box.querySelector("#bf").value.trim(), last = box.querySelector("#bl").value.trim();
+        if (!first && !last) { toast("Add a name"); box.querySelector("#bf").focus(); return; }
+        var b = e.currentTarget; b.disabled = true;
+        api("/api/stock/clients", { method: "POST", body: JSON.stringify({ first: first, last: last, email: box.querySelector("#be").value.trim() }) })
+          .then(function (r) { onPick({ id: r.client.id, name: r.client.name || r.client.email }); })
+          .catch(function (err) {
+            b.disabled = false;
+            if (err.auth) { closeSheet(); renderLogin("Signed out. Sign in again."); return; }
+            toast(err.message);
+          });
+      };
+    }
+    input.addEventListener("input", function () {
+      clearTimeout(t);
+      var q = input.value.trim();
+      if (q.length < 2) { list.innerHTML = ""; return; }
+      t = setTimeout(function () {
+        var mine = ++seq;
+        api("/api/stock/clients?q=" + encodeURIComponent(q)).then(function (r) {
+          if (mine !== seq) return;
+          list.innerHTML = r.clients.map(function (c) {
+            return '<button class="opt person" data-cid="' + c.id + '" data-name="' + esc(c.name || c.email) + '"><span>' + esc(c.name || c.email) +
+              (c.email ? "<small>" + esc(c.email) + "</small>" : "") + "</span></button>";
+          }).join("") + '<button class="opt" data-new><span>Add "' + esc(q) + '" as a new buyer</span></button>';
+          list.querySelector("[data-new]").onclick = function () { newForm(q); };
+          list.querySelectorAll("[data-cid]").forEach(function (b) {
+            b.onclick = function () { onPick({ id: b.getAttribute("data-cid"), name: b.getAttribute("data-name") }); };
+          });
+        }).catch(function (err) {
+          if (mine === seq) list.innerHTML = '<p class="group-label">' + esc(err.message) + "</p>";
+        });
+      }, 250);
+    });
+  }
+
+  function saleSheet(w, d) {
+    var sold = isSold(w);
+    var cur = w.soldEur != null ? "EUR" : w.soldUsd != null ? "USD" : w.soldGbp != null ? "GBP" : "EUR";
+    var amount = cur === "EUR" ? w.soldEur : cur === "USD" ? w.soldUsd : w.soldGbp;
+    if (amount == null && !sold && w.eur) amount = w.eur; // starts from the list price
+    var buyer = w.ownerIds && w.ownerIds.length ? { id: w.ownerIds[0], name: w.owner } : null;
+    var picked = null; // a buyer chosen in this sheet
+    var paid = w.paidArtist || "";
+    sheet(
+      "<h2>" + (sold ? "Sale details" : "Mark as sold") + "</h2>" +
+      '<p class="group-label">' + esc(w.title) + "</p>" +
+      '<div class="two"><div class="field"><label for="s-amt">Sale price</label><input id="s-amt" inputmode="decimal" autocomplete="off" value="' + esc(numStr(amount)) + '"></div>' +
+      '<div class="field"><label for="s-cur">Currency</label><select id="s-cur">' +
+      ["EUR", "USD", "GBP"].map(function (c) { return "<option" + (c === cur ? " selected" : "") + ">" + c + "</option>"; }).join("") +
+      "</select></div></div>" +
+      '<div id="s-buyer"></div>' +
+      '<p class="group-label" style="padding-top:14px">Paid to artist</p><div class="segment" id="s-paid">' +
+      [["Yes", "Yes"], ["No", "No"], ["", "Not set"]].map(function (o) {
+        return '<button data-paid="' + o[0] + '" aria-pressed="' + (paid === o[0]) + '">' + o[1] + "</button>";
+      }).join("") + "</div>" +
+      '<div class="actions"><button class="btn" data-cancel>Cancel</button><button class="btn primary" data-save>' + (sold ? "Save" : "Mark as sold") + "</button></div>" +
+      (sold ? "" : '<p style="padding-top:14px"><button class="text-btn small" data-quick>Mark as sold without details</button></p>'),
+      function (s) {
+        var box = s.querySelector("#s-buyer");
+        function showBuyer(picking) {
+          var shown = picked || buyer;
+          if (shown && !picking) {
+            box.innerHTML = '<div class="chosen"><span>Sold to <strong>' + esc(shown.name) + '</strong></span><button class="text-btn small" data-change>Change</button></div>';
+            box.querySelector("[data-change]").onclick = function () { showBuyer(true); };
+          } else {
+            buyerPicker(box, function (p) { picked = p; showBuyer(false); });
+            if (shown) {
+              var keep = document.createElement("button");
+              keep.className = "text-btn small"; keep.textContent = "Keep " + shown.name;
+              keep.onclick = function () { showBuyer(false); };
+              box.appendChild(keep);
+            }
+          }
+        }
+        showBuyer(false);
+        s.querySelector("[data-cancel]").onclick = closeSheet;
+        s.querySelector("#s-paid").onclick = function (e) {
+          var b = e.target.closest("[data-paid]"); if (!b) return;
+          paid = b.getAttribute("data-paid");
+          s.querySelectorAll("[data-paid]").forEach(function (x) { x.setAttribute("aria-pressed", x === b); });
+        };
+        var quick = s.querySelector("[data-quick]");
+        if (quick) quick.onclick = function () {
+          closeSheet();
+          write(w, { status: "Sold" }, function () { redrawDetail(w.id); });
+        };
+        s.querySelector("[data-save]").onclick = function () {
+          var amt = parseNum(s.querySelector("#s-amt").value, true);
+          if (amt !== null && (isNaN(amt) || amt < 0)) { toast("Check the sale price"); return; }
+          var c = s.querySelector("#s-cur").value;
+          var set = { soldEur: null, soldUsd: null, soldGbp: null, paidArtist: paid };
+          set["sold" + c.charAt(0) + c.slice(1).toLowerCase()] = amt;
+          var ownerName;
+          if (picked && !(buyer && picked.id === buyer.id)) { set.owner = [picked.id]; ownerName = picked.name; }
+          var change = { set: set };
+          if (!sold) change.status = "Sold";
+          var btn = s.querySelector("[data-save]"); btn.disabled = true;
+          saveWork(w, change, { ownerName: ownerName, toast: sold ? "Sale saved" : "Marked sold" }, function (ok) {
+            if (ok) { closeSheet(); redrawDetail(w.id); } else btn.disabled = false;
+          });
+        };
+      }
+    );
   }
 
   function closeDetail() {
