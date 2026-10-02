@@ -1638,7 +1638,8 @@ function App() {
           id: aw.id,
           title: f['Title'] || 'Untitled',
           artist: artistName,
-          year: f['Year'] || '',
+          // "Year (display)" is a formula in Artworks: "2019" or "2019–2021" when Year end is set.
+          year: f['Year (display)'] || f['Year'] || '',
           info: f['Info (Backup)'] || '',
           imageUrl: '/api/image?id=' + aw.id + '&size=large',
           imageUrlFull: '/api/image?id=' + aw.id + '&size=full',
