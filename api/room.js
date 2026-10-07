@@ -18,6 +18,10 @@ function escapeHtml(s) {
 }
 
 module.exports = async function handler(req, res) {
+  // /:slug/pdf is rewritten here with format=pdf (kept in this function to
+  // stay within the Hobby plan's 12-function limit).
+  if (req.query.format === "pdf") return require("./_lib/pdf")(req, res);
+
   let html = fs.readFileSync(path.join(process.cwd(), "viewing-room.html"), "utf8");
 
   const slug = String(req.query.vr || "").replace(/["\\]/g, "");
