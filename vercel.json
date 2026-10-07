@@ -13,6 +13,10 @@
       "destination": "/api/room?vr=:slug&format=pdf"
     },
     {
+      "source": "/:slug/pdf2",
+      "destination": "/api/room?vr=:slug&format=pdf2"
+    },
+    {
       "source": "/:slug",
       "destination": "/api/room?vr=:slug"
     }
