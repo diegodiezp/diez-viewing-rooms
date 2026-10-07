@@ -425,3 +425,9 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: "Could not generate the PDF" });
   }
 };
+
+// Shared with pdf2.js (same data access, different layout).
+module.exports.helpers = {
+  airtable, fetchByIds, mapLimit, attachmentTiers, downloadImage,
+  TBL_VR, TBL_ARTWORKS, TBL_ARTISTS, ROOM_FIELDS, ARTWORK_FIELDS, MAX_BYTES, FULL_TIER_MAX_IMAGES,
+};
