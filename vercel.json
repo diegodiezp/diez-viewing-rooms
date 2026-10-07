@@ -9,6 +9,10 @@
       "destination": "/editorial.html"
     },
     {
+      "source": "/:slug/pdf",
+      "destination": "/api/pdf?vr=:slug"
+    },
+    {
       "source": "/:slug",
       "destination": "/api/room?vr=:slug"
     }
@@ -16,6 +20,10 @@
   "functions": {
     "api/room.js": {
       "includeFiles": "viewing-room.html"
+    },
+    "api/pdf.js": {
+      "includeFiles": "files/{Replica_Regular.woff2,Replica_Bold.woff2,Replica_Italic.woff2,logo.png}",
+      "maxDuration": 30
     }
   },
   "headers": [
