@@ -1,4 +1,6 @@
-// Generates a PDF of a viewing room: /:slug/pdf  (rewritten to /api/pdf?vr=:slug).
+// Generates a PDF of a viewing room: /:slug/pdf  (rewritten to /api/room?vr=:slug&format=pdf).
+// Lives in _lib (not a function of its own) because the Hobby plan caps a
+// deployment at 12 serverless functions; api/room.js delegates to it.
 //
 // Mirrors what the room page shows: cover with title, dates and introduction,
 // then installation views and one page per work, in the same order as the
@@ -178,7 +180,7 @@ function buildPdf({ room, items, imageFor, origin, slug }) {
       });
 
     // ── Pages ──────────────────────────────────────────────────────────────
-    const imgBox = { x: PAGE.margin, y: PAGE.margin, w: W, h: 520 };
+    const imgBox = { x: PAGE.margin, y: 84, w: W, h: 500 };
 
     items.forEach((item) => {
       doc.addPage();
@@ -186,9 +188,9 @@ function buildPdf({ room, items, imageFor, origin, slug }) {
 
       if (item.kind === "view") {
         // Installation view: image large, small caption.
-        drawImage(buf, PAGE.margin, PAGE.margin, W, PAGE.h - PAGE.margin * 2 - 60);
+        drawImage(buf, PAGE.margin, 84, W, PAGE.h - 84 - 110);
         doc.font("Replica").fontSize(8).fillColor("#666666")
-          .text("INSTALLATION VIEW", PAGE.margin, PAGE.h - PAGE.margin - 40, {
+          .text("INSTALLATION VIEW", PAGE.margin, PAGE.h - 86, {
             width: W, characterSpacing: 1,
           });
         return;
@@ -233,19 +235,44 @@ function buildPdf({ room, items, imageFor, origin, slug }) {
       }
     });
 
-    // ── Footer on every page except the cover ──────────────────────────────
+    // ── Header logo (pages after the cover) + contact footer (every page) ──
+    const CONTACT = {
+      address: "Gibraltarstraat 74-B, Amsterdam",
+      email: "diego@diez.gallery",
+      phone: "+31 633261845",
+      web: "diez.gallery",
+    };
     const range = doc.bufferedPageRange();
-    for (let i = 1; i < range.count; i++) {
+    for (let i = 0; i < range.count; i++) {
       doc.switchToPage(i);
       const prevBottom = doc.page.margins.bottom;
       doc.page.margins.bottom = 0; // allow writing in the bottom margin without a page break
-      doc.font("Replica").fontSize(7.5).fillColor("#999999")
-        .text("Diez Gallery  ·  " + room.title, PAGE.margin, PAGE.h - 30, {
-          width: W - 40, lineBreak: false,
-        })
-        .text(String(i + 1), PAGE.w - PAGE.margin - 40, PAGE.h - 30, {
+
+      if (i > 0) {
+        try {
+          doc.image(path.join(files, "logo.png"), PAGE.margin, 30, { width: 44 });
+        } catch (e) { /* logo is decorative */ }
+      }
+
+      const fy = PAGE.h - 34;
+      doc.font("Replica").fontSize(7.5).fillColor("#666666");
+      let x = PAGE.margin;
+      const parts = [
+        { t: CONTACT.address },
+        { t: CONTACT.email, link: "mailto:" + CONTACT.email },
+        { t: CONTACT.phone, link: "tel:" + CONTACT.phone.replace(/\s/g, "") },
+        { t: CONTACT.web, link: "https://" + CONTACT.web },
+      ];
+      parts.forEach((part, idx) => {
+        const txt = part.t + (idx < parts.length - 1 ? "   ·   " : "");
+        doc.text(txt, x, fy, { lineBreak: false, link: part.link });
+        x += doc.widthOfString(txt);
+      });
+      if (i > 0) {
+        doc.text(String(i + 1), PAGE.w - PAGE.margin - 40, fy, {
           width: 40, align: "right", lineBreak: false,
         });
+      }
       doc.page.margins.bottom = prevBottom;
     }
 
