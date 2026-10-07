@@ -10,7 +10,7 @@
     },
     {
       "source": "/:slug/pdf",
-      "destination": "/api/pdf?vr=:slug"
+      "destination": "/api/room?vr=:slug&format=pdf"
     },
     {
       "source": "/:slug",
@@ -19,10 +19,7 @@
   ],
   "functions": {
     "api/room.js": {
-      "includeFiles": "viewing-room.html"
-    },
-    "api/pdf.js": {
-      "includeFiles": "files/{Replica_Regular.woff2,Replica_Bold.woff2,Replica_Italic.woff2,logo.png}",
+      "includeFiles": "{viewing-room.html,files/Replica_Regular.woff2,files/Replica_Bold.woff2,files/Replica_Italic.woff2,files/logo.png}",
       "maxDuration": 30
     }
   },
