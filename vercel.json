@@ -24,7 +24,7 @@
   "functions": {
     "api/room.js": {
       "includeFiles": "{viewing-room.html,files/Replica_Regular.woff2,files/Replica_Bold.woff2,files/Replica_Italic.woff2,files/logo.png,node_modules/pdfkit/js/**/*.cjs,node_modules/pdfkit/js/data/*}",
-      "maxDuration": 30
+      "maxDuration": 60
     }
   },
   "headers": [

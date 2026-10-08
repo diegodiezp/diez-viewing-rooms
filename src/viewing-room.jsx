@@ -515,7 +515,7 @@ function Landing({ room, works, onSelect }) {
         </h1>
         <div className="divider" style={{ marginTop:28 }}/>
         {room.intro && <IntroText text={room.intro} />}
-        {(room.files?.length > 0 || room.installViews?.length > 0) && (
+        {(room.slug || room.files?.length > 0 || room.installViews?.length > 0) && (
           <div style={{ marginTop:12, display:'flex', flexDirection:'column', gap:6 }}>
             {room.files && room.files.map((file, i) => (
               <a key={i} href={file.url} target="_blank" rel="noopener noreferrer" download={file.filename}
@@ -528,6 +528,17 @@ function Landing({ room, works, onSelect }) {
                 ↓ {file.filename}
               </a>
             ))}
+            {room.slug && (
+              <a href={'/' + encodeURIComponent(room.slug) + '/pdf?dl=1'}
+                onClick={() => trackEngagement('PDF Download', null, 'Viewing room PDF')}
+                style={{ display:'inline-block', fontSize:12,
+                  letterSpacing:'0.08em', textTransform:'uppercase', color:'#666666',
+                  textDecoration:'none', transition:'color 0.15s' }}
+                onMouseEnter={e => e.target.style.color='#000000'}
+                onMouseLeave={e => e.target.style.color='#666666'}>
+                ↓ Download PDF
+              </a>
+            )}
             {room.installViews?.length > 0 && (
               <a href="#installation-views"
                 onClick={e => { e.preventDefault(); document.getElementById('installation-views')?.scrollIntoView({ behavior:'smooth' }); }}
@@ -967,7 +978,7 @@ function App() {
       const attachments = vr['Attachments'] || [];
       const installAttachments = vr['Installation Views'] || [];
       setRoom({
-        gallery: 'Diez Gallery', title: vr['Name'] || 'Viewing Room',
+        gallery: 'Diez Gallery', slug, title: vr['Name'] || 'Viewing Room',
         dates: formatDates(vr['Start Date'], vr['End Date']), booth: '', intro: vr['Introduction'] || '',
         files: attachments.map((att, i) => ({
           url: '/api/attachment?id=' + vrRecordId + '&index=' + i,

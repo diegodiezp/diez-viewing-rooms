@@ -10,9 +10,10 @@
 const path = require("path");
 const PDFDocument = require("pdfkit");
 const {
-  airtable, fetchByIds, mapLimit, attachmentTiers, downloadImage,
-  TBL_VR, TBL_ARTWORKS, TBL_ARTISTS, ROOM_FIELDS, ARTWORK_FIELDS, MAX_BYTES, FULL_TIER_MAX_IMAGES,
+  airtable, fetchByIds, attachmentTiers,
+  TBL_VR, TBL_ARTWORKS, TBL_ARTISTS, ROOM_FIELDS, ARTWORK_FIELDS, MAX_BYTES,
 } = require("./pdf").helpers;
+const { prepareImages } = require("./pdfimages");
 
 const P = { w: 841.89, h: 595.28, m: 36 };
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -258,27 +259,18 @@ module.exports = async function handler(req, res) {
     };
     const introParas = String(vr["Introduction"] || "").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
 
-    const cache = { large: new Map(), full: new Map() };
-    async function loadTier(tier) {
-      await mapLimit(items, 6, async (item, i) => {
-        const url = item.kind === "view" ? item.tiers && item.tiers[tier] : item.work.tiers && item.work.tiers[tier];
-        if (!url || cache[tier].has(i)) return;
-        cache[tier].set(i, await downloadImage(url));
-      });
-    }
-
-    let tier = req.query.hq === "0" || items.length > FULL_TIER_MAX_IMAGES ? "large" : "full";
-    await loadTier(tier);
-    const make = () => buildPdf2({
-      room, participants, items, introParas,
-      imageFor: (item) => cache[tier].get(items.indexOf(item)) || null,
+    // Images: "full" thumbnails re-encoded to fit the response limit (see pdfimages.js).
+    const imgs = await prepareImages({
+      entries: items.map((it) => ({
+        urls: it.kind === "view" ? it.tiers : it.work.tiers,
+        cap: it.kind === "view" ? 2000 : 1600,
+      })),
+      budgetBytes: MAX_BYTES - 300 * 1024,
     });
-    let pdf = await make();
-    if (pdf.length > MAX_BYTES && tier === "full") {
-      tier = "large";
-      await loadTier(tier);
-      pdf = await make();
-    }
+    const pdf = await buildPdf2({
+      room, participants, items, introParas,
+      imageFor: (item) => imgs[items.indexOf(item)] || null,
+    });
 
     const safeName = (room.title || "viewing-room").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").slice(0, 80) || "viewing-room";
     res.setHeader("Content-Type", "application/pdf");

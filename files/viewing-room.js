@@ -757,7 +757,7 @@ function Landing({
     }
   }), room.intro && /*#__PURE__*/React.createElement(IntroText, {
     text: room.intro
-  }), (room.files?.length > 0 || room.installViews?.length > 0) && /*#__PURE__*/React.createElement("div", {
+  }), (room.slug || room.files?.length > 0 || room.installViews?.length > 0) && /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 12,
       display: 'flex',
@@ -782,7 +782,21 @@ function Landing({
     },
     onMouseEnter: e => e.target.style.color = '#000000',
     onMouseLeave: e => e.target.style.color = '#666666'
-  }, "\u2193 ", file.filename)), room.installViews?.length > 0 && /*#__PURE__*/React.createElement("a", {
+  }, "\u2193 ", file.filename)), room.slug && /*#__PURE__*/React.createElement("a", {
+    href: '/' + encodeURIComponent(room.slug) + '/pdf?dl=1',
+    onClick: () => trackEngagement('PDF Download', null, 'Viewing room PDF'),
+    style: {
+      display: 'inline-block',
+      fontSize: 12,
+      letterSpacing: '0.08em',
+      textTransform: 'uppercase',
+      color: '#666666',
+      textDecoration: 'none',
+      transition: 'color 0.15s'
+    },
+    onMouseEnter: e => e.target.style.color = '#000000',
+    onMouseLeave: e => e.target.style.color = '#666666'
+  }, "\u2193 Download PDF"), room.installViews?.length > 0 && /*#__PURE__*/React.createElement("a", {
     href: "#installation-views",
     onClick: e => {
       e.preventDefault();
@@ -1569,6 +1583,7 @@ function App() {
       const installAttachments = vr['Installation Views'] || [];
       setRoom({
         gallery: 'Diez Gallery',
+        slug,
         title: vr['Name'] || 'Viewing Room',
         dates: formatDates(vr['Start Date'], vr['End Date']),
         booth: '',

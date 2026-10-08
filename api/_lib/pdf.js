@@ -15,6 +15,7 @@
 const fs = require("fs");
 const path = require("path");
 const PDFDocument = require("pdfkit");
+const { prepareImages } = require("./pdfimages");
 
 const BASE_ID = "appkTmFvjmDLOQS4p";
 const TBL_VR = "tbl8EUvqiOLudNvjv"; // Viewing Rooms
@@ -376,16 +377,7 @@ module.exports = async function handler(req, res) {
       return true;
     });
 
-    // 4. Images, lazily per tier and cached.
-    const cache = { large: new Map(), full: new Map() };
-    async function loadTier(tier) {
-      await mapLimit(items, 6, async (item, i) => {
-        const url = item.kind === "view" ? item.tiers && item.tiers[tier] : item.work.tiers && item.work.tiers[tier];
-        if (!url || cache[tier].has(i)) return;
-        cache[tier].set(i, await downloadImage(url));
-      });
-    }
-
+    // 4. Images: "full" thumbnails re-encoded to fit the response limit.
     const room = {
       title: vr["Name"] || "Viewing Room",
       dates: formatDates(vr["Start Date"], vr["End Date"]),
@@ -394,22 +386,17 @@ module.exports = async function handler(req, res) {
     const host = req.headers["x-forwarded-host"] || req.headers.host;
     const origin = "https://" + host;
 
-    const imageCount = items.length;
-    let tier = req.query.hq === "0" || imageCount > FULL_TIER_MAX_IMAGES ? "large" : "full";
-    await loadTier(tier);
-    let pdf = await buildPdf({
-      room, items, origin, slug,
-      imageFor: (item) => cache[tier].get(items.indexOf(item)) || null,
+    const imgs = await prepareImages({
+      entries: items.map((it) => ({
+        urls: it.kind === "view" ? it.tiers : it.work.tiers,
+        cap: it.kind === "view" ? 1800 : 1500,
+      })),
+      budgetBytes: MAX_BYTES - 300 * 1024,
     });
-
-    if (pdf.length > MAX_BYTES && tier === "full") {
-      tier = "large";
-      await loadTier(tier);
-      pdf = await buildPdf({
-        room, items, origin, slug,
-        imageFor: (item) => cache[tier].get(items.indexOf(item)) || null,
-      });
-    }
+    const pdf = await buildPdf({
+      room, items, origin, slug,
+      imageFor: (item) => imgs[items.indexOf(item)] || null,
+    });
 
     const safeName = (room.title || "viewing-room")
       .replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").slice(0, 80) || "viewing-room";
