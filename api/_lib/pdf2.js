@@ -119,6 +119,32 @@ function buildPdf2({ room, participants, items, imageFor, introParas }) {
       drawImage(buf, 0, 16, P.w, P.h - 32);
     }
 
+    // Quiet branding for the work pages (the full-bleed views, title page and
+    // closing page carry none): a small half-transparent logo top left and one
+    // line of contact details in light grey at the bottom.
+    function workBranding() {
+      try {
+        doc.save();
+        doc.opacity(0.45);
+        doc.image(path.join(files, "logo.png"), P.m, 20, { width: 32 });
+        doc.restore();
+      } catch (e) { /* decorative */ }
+      const parts = [
+        { t: "Gibraltarstraat 74-B, Amsterdam" },
+        { t: "diego@diez.gallery", link: "mailto:diego@diez.gallery" },
+        { t: "+31 6 33261845", link: "tel:+31633261845" },
+        { t: "diez.gallery", link: "https://diez.gallery" },
+      ];
+      doc.font("Replica").fontSize(6.5).fillColor("#a3a3a3");
+      let x = P.m;
+      const y = P.h - 24;
+      parts.forEach((part, i) => {
+        const txt = part.t + (i < parts.length - 1 ? "   ·   " : "");
+        doc.text(txt, x, y, { lineBreak: false, link: part.link });
+        x += doc.widthOfString(txt);
+      });
+    }
+
     function workPage(w, buf) {
       newPage();
       drawImage(buf, 126, 36, 590, 392, "center");
@@ -141,6 +167,7 @@ function buildPdf2({ room, participants, items, imageFor, introParas }) {
         doc.font("Replica").fontSize(7.5).fillColor("#888888")
           .text(w.statusLabel.toUpperCase(), cx, y, { width: cw, align: "center", characterSpacing: 1 });
       }
+      workBranding();
     }
 
     function textPage(paras) {
