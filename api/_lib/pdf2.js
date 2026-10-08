@@ -5,15 +5,21 @@
 // A4 landscape. Order: first installation view, title page, remaining
 // installation views, then one page per work (sectioned rooms keep the room's
 // own order: views 1, works 1, views 2, ...), the room introduction as a text
-// page, and a closing page with terms and contact details. No running
-// header/footer. Same data access, status and price rules as pdf.js.
+// page, and a closing page with terms and contact details. Same data access,
+// status and price rules as pdf.js.
+//
+// Work pages: the wall of each photo is extended to fill the whole page (see
+// wallextend.js), with the work placed as large as possible beside or above a
+// caption at the bottom left. Photos cropped tight to the work (no wall
+// around it) keep the white, centred layout. ?wall=0 turns this off.
 const path = require("path");
 const PDFDocument = require("pdfkit");
 const {
-  airtable, fetchByIds, attachmentTiers,
+  airtable, fetchByIds, attachmentTiers, mapLimit,
   TBL_VR, TBL_ARTWORKS, TBL_ARTISTS, ROOM_FIELDS, ARTWORK_FIELDS, MAX_BYTES,
 } = require("./pdf").helpers;
 const { prepareImages } = require("./pdfimages");
+const { extendToPage, findWork } = require("./wallextend");
 
 const P = { w: 841.89, h: 595.28, m: 36 };
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -57,7 +63,74 @@ function surname(name) {
   return w[w.length - 1] || "";
 }
 
-function buildPdf2({ room, participants, items, imageFor, introParas }) {
+const FILES = path.join(process.cwd(), "files");
+function registerFonts(doc) {
+  doc.registerFont("Replica", path.join(FILES, "Replica_Regular.woff2"));
+  doc.registerFont("Replica-Bold", path.join(FILES, "Replica_Bold.woff2"));
+  doc.registerFont("Replica-Italic", path.join(FILES, "Replica_Italic.woff2"));
+}
+
+const priceText = (w) => Number(w.price).toLocaleString("de-DE").replace(/\./g, "") + " EUR";
+
+// Caption for the extended-wall work page (bottom left), as drawable lines:
+// [font, size, colour, text, gap above, extra options].
+const CAPTION_W = 190;
+function captionLines(w) {
+  const L = [];
+  if (w.artist) L.push(["Replica-Bold", 11, "#1a1a1a", w.artist, 0]);
+  L.push(["Replica-Italic", 11, "#1a1a1a", w.title + (w.year ? ", " + w.year : ""), L.length ? 1 : 0]);
+  if (w.medium) L.push(["Replica", 8.5, "#444444", w.medium, 10]);
+  w.lines.forEach((ln, i) => L.push(["Replica", 8.5, "#444444", ln, i === 0 && !w.medium ? 10 : 3]));
+  if (w.price && w.showPrice) L.push(["Replica-Bold", 9, "#1a1a1a", priceText(w), 12]);
+  if (w.statusLabel !== "Available") L.push(["Replica", 7.5, "#777777", w.statusLabel.toUpperCase(), 4, { characterSpacing: 1 }]);
+  return L;
+}
+function captionHeight(doc, lines) {
+  return lines.reduce((h, [f, s, , t, gap, o]) => {
+    doc.font(f).fontSize(s);
+    return h + gap + doc.heightOfString(t, Object.assign({ width: CAPTION_W }, o || {}));
+  }, 0);
+}
+
+// Where the photo goes on an extended-wall page. The WORK (found inside the
+// photo) is made as large as possible either to the right of the caption or
+// above it, within the page margins; the photo's own wall may run off the
+// page. It never gets smaller than the plain fitted photo would, and is only
+// enlarged while the photo stays at 140 ppi or more.
+const CAPTION_BOTTOM = 552;
+function placeWork(found, capH) {
+  const r = found.pxW / found.pxH;
+  const bw = P.w - 2 * P.m, bh = 555;
+  const fitW = Math.min(bw, bh * r);
+  if (!found.box) {
+    const pw = fitW, ph = pw / r;
+    return { x: P.m + (bw - pw) / 2, y: 20 + (bh - ph) / 2, w: pw, h: ph };
+  }
+  const pad = 0.04, B = found.box;
+  const a = Math.max(0, B.x0 - pad), b = Math.min(1, B.x1 + pad);
+  const c = Math.max(0, B.y0 - pad), d = Math.min(1, B.y1 + pad);
+  const cap = { x1: P.m + CAPTION_W + 16, y0: CAPTION_BOTTOM - capH - 16 };
+  const top = 40, bot = P.h - 36, left = P.m, right = P.w - P.m;
+  const maxPw = Math.max(fitW, found.pxW / 140 * 72);
+  const zones = [
+    { x0: cap.x1, x1: right, y0: top, y1: bot },   // beside the caption
+    { x0: left, x1: right, y0: top, y1: cap.y0 },  // above the caption
+  ];
+  let best = null;
+  zones.forEach((z) => {
+    const pw = Math.min((z.x1 - z.x0) / (b - a), (z.y1 - z.y0) * r / (d - c), maxPw);
+    if (!(pw > 0)) return;
+    const ph = pw / r, ww = (b - a) * pw, wh = (d - c) * ph;
+    let wx = (P.w - ww) / 2;                 // centred on the page when it fits
+    if (wx < z.x0) wx = z.x0;
+    if (wx + ww > z.x1) wx = z.x1 - ww;
+    const wy = z.y0 + (z.y1 - z.y0 - wh) / 2;
+    if (!best || pw > best.w) best = { x: wx - a * pw, y: wy - c * ph, w: pw, h: ph };
+  });
+  return best;
+}
+
+function buildPdf2({ room, participants, items, imageFor, wallFor, introParas }) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: [P.w, P.h],
@@ -69,10 +142,8 @@ function buildPdf2({ room, participants, items, imageFor, introParas }) {
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    const files = path.join(process.cwd(), "files");
-    doc.registerFont("Replica", path.join(files, "Replica_Regular.woff2"));
-    doc.registerFont("Replica-Bold", path.join(files, "Replica_Bold.woff2"));
-    doc.registerFont("Replica-Italic", path.join(files, "Replica_Italic.woff2"));
+    const files = FILES;
+    registerFonts(doc);
     const INK = "#1a1a1a";
 
     function drawImage(buf, x, y, w, h, valign) {
@@ -157,7 +228,7 @@ function buildPdf2({ room, participants, items, imageFor, introParas }) {
       y = Math.max(y + 12, 528);
       if (w.price && w.showPrice) {
         doc.font("Replica-Bold").fontSize(9).fillColor(INK)
-          .text(Number(w.price).toLocaleString("de-DE").replace(/\./g, "") + " EUR", cx, y, { width: cw, align: "center" });
+          .text(priceText(w), cx, y, { width: cw, align: "center" });
         y = doc.y + 3;
       }
       if (w.statusLabel !== "Available") {
@@ -165,6 +236,36 @@ function buildPdf2({ room, participants, items, imageFor, introParas }) {
           .text(w.statusLabel.toUpperCase(), cx, y, { width: cw, align: "center", characterSpacing: 1 });
       }
       workBranding();
+    }
+
+    // Work page on an extended wall: the page image already contains the
+    // photo and its wall; caption bottom left, contact bottom right.
+    function wallWorkPage(w, wallBuf) {
+      newPage();
+      doc.image(wallBuf, 0, 0, { width: P.w, height: P.h });
+      logo(P.m, 20, 32);
+      const lines = captionLines(w);
+      let y = CAPTION_BOTTOM - captionHeight(doc, lines);
+      lines.forEach(([f, s, col, t, gap, o]) => {
+        y += gap;
+        doc.font(f).fontSize(s).fillColor(col).text(t, P.m, y, Object.assign({ width: CAPTION_W }, o || {}));
+        y = doc.y;
+      });
+      const parts = [
+        { t: "Gibraltarstraat 74-B, Amsterdam" },
+        { t: "diego@diez.gallery", link: "mailto:diego@diez.gallery" },
+        { t: "+31 6 33261845", link: "tel:+31633261845" },
+        { t: "diez.gallery", link: "https://diez.gallery" },
+      ];
+      doc.font("Replica").fontSize(6.5).fillColor("#8f8f8f");
+      const sep = "   ·   ";
+      const total = parts.reduce((n, p, i) => n + doc.widthOfString(p.t + (i < parts.length - 1 ? sep : "")), 0);
+      let x = P.w - P.m - total;
+      parts.forEach((part, i) => {
+        const txt = part.t + (i < parts.length - 1 ? sep : "");
+        doc.text(txt, x, P.h - 22, { lineBreak: false, link: part.link });
+        x += doc.widthOfString(txt);
+      });
     }
 
     function textPage(paras) {
@@ -200,7 +301,9 @@ function buildPdf2({ room, participants, items, imageFor, introParas }) {
         if (i === firstViewIdx) { titlePage(); titleDone = true; }
       } else {
         if (!titleDone) { titlePage(); titleDone = true; }
-        workPage(it.work, imageFor(it));
+        const wallBuf = wallFor ? wallFor(it) : null;
+        if (wallBuf) wallWorkPage(it.work, wallBuf);
+        else workPage(it.work, imageFor(it));
       }
     });
     if (!titleDone) titlePage();
@@ -295,18 +398,49 @@ module.exports = async function handler(req, res) {
     };
     const introParas = String(vr["Introduction"] || "").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
 
-    // Images: "full" thumbnails re-encoded to fit the response limit (see pdfimages.js).
+    const wallMode = req.query.wall !== "0";
+
+    // Images: "full" thumbnails re-encoded to fit the response limit (see
+    // pdfimages.js). The extended walls add some weight, so leave room.
     const imgs = await prepareImages({
       entries: items.map((it) => ({
         urls: it.kind === "view" ? it.tiers : it.work.tiers,
         cap: it.kind === "view" ? 2200 : 1600,
       })),
-      budgetBytes: MAX_BYTES - 300 * 1024,
+      budgetBytes: MAX_BYTES - (wallMode ? 1100 : 300) * 1024,
     });
-    const pdf = await buildPdf2({
+
+    // Extended-wall pages for the works (null = keep the white layout).
+    const measure = new PDFDocument({ size: [P.w, P.h], margin: 0 });
+    registerFonts(measure);
+    async function makeWalls(quality) {
+      return mapLimit(items, 2, async (it, i) => {
+        if (!wallMode || it.kind !== "work" || !imgs[i]) return null;
+        try {
+          const found = await findWork(imgs[i]);
+          if (!found) return null;
+          const rect = placeWork(found, captionHeight(measure, captionLines(it.work)));
+          const { buf } = await extendToPage(imgs[i], rect, P, { quality });
+          return buf;
+        } catch (e) {
+          console.error("pdf2 wall error:", e);
+          return null;
+        }
+      });
+    }
+    const build = (walls) => buildPdf2({
       room, participants, items, introParas,
       imageFor: (item) => imgs[items.indexOf(item)] || null,
+      wallFor: (item) => (walls && walls[items.indexOf(item)]) || null,
     });
+
+    let walls = await makeWalls(82);
+    let pdf = await build(walls);
+    if (pdf.length > MAX_BYTES && wallMode) {       // too heavy: lighter walls
+      walls = await makeWalls(66);
+      pdf = await build(walls);
+    }
+    if (pdf.length > MAX_BYTES && wallMode) pdf = await build(null);
 
     const safeName = (room.title || "viewing-room").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").slice(0, 80) || "viewing-room";
     res.setHeader("Content-Type", "application/pdf");
