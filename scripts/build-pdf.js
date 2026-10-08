@@ -2,7 +2,8 @@
 // where there is no 60 s / 4.5 MB limit: same layout as /:slug/pdf2, but with
 // full-resolution images. Each PDF is uploaded to Cloudflare R2 and its link
 // saved in the room's "PDF" field in Airtable; the room's "Download PDF"
-// button then serves that file.
+// button then serves that file. Alongside it, an InDesign package (.zip with
+// the .idml and its Links folder, see idml.js) goes to the "InDesign" field.
 //
 //   SLUG=<url slug>   build that room
 //   (no SLUG)         refresh every room that already has a PDF; rooms that
@@ -18,6 +19,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const { generatePdf2 } = require("../api/_lib/pdf2");
+const { buildIdml } = require("./idml");
 const { airtable, TBL_VR } = require("../api/_lib/pdf").helpers;
 
 const env = process.env;
@@ -32,9 +34,9 @@ function need(name) {
 // Stable, unguessable object name per room: the same room always overwrites
 // the same file (so links in sent emails keep working), but nobody can guess
 // another room's PDF from its slug.
-function objectKey(slug) {
+function objectKey(slug, ext = ".pdf") {
   const h = crypto.createHmac("sha256", need("R2_SECRET_ACCESS_KEY")).update(slug).digest("hex").slice(0, 20);
-  return "pdfs/" + slug + "-" + h + ".pdf";
+  return "pdfs/" + slug + "-" + h + ext;
 }
 
 let r2 = null;
@@ -52,13 +54,13 @@ function r2Client() {
 }
 const r2Url = (key) => "https://" + need("R2_ACCOUNT_ID") + ".r2.cloudflarestorage.com/" + need("R2_BUCKET") + "/" + key;
 
-async function upload(key, body, fileName) {
+async function upload(key, body, fileName, type = "application/pdf") {
   const res = await r2Client().fetch(r2Url(key), {
     method: "PUT",
     body,
     headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": 'inline; filename="' + fileName + '"',
+      "Content-Type": type,
+      "Content-Disposition": (type === "application/pdf" ? "inline" : "attachment") + '; filename="' + fileName + '"',
       "Cache-Control": "public, max-age=300",
     },
   });
@@ -70,11 +72,11 @@ async function remove(key) {
   if (!res.ok && res.status !== 404) throw new Error("R2 delete failed: " + res.status);
 }
 
-async function setPdfField(token, recordId, value) {
+async function setFields(token, recordId, fields) {
   const res = await fetch("https://api.airtable.com/v0/" + BASE_ID + "/" + TBL_VR + "/" + recordId, {
     method: "PATCH",
     headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-    body: JSON.stringify({ fields: { PDF: value } }),
+    body: JSON.stringify({ fields }),
   });
   if (!res.ok) throw new Error("Airtable update failed: " + res.status);
 }
@@ -114,28 +116,38 @@ const safeName = (t) => (t || "viewing-room").replace(/[^\w\- ]+/g, "").trim().r
       if (expired) {
         if (rec.fields["PDF"] && !DRY) {
           await remove(objectKey(s));
-          await setPdfField(token, rec.id, null);
-          console.log(s + ": expired, PDF removed");
+          await remove(objectKey(s, "-indesign.zip"));
+          await setFields(token, rec.id, { PDF: null, InDesign: null });
+          console.log(s + ": expired, PDF and InDesign package removed");
         }
         continue;
       }
       const out = await generatePdf2({
-        slug: s, token, maxBytes: Infinity, caps: { view: 3000, work: 2400 },
+        slug: s, token, maxBytes: Infinity, caps: { view: 3000, work: 2400 }, withModel: true,
       });
       if (out.error) { console.log(s + ": skipped (" + out.error + ")"); continue; }
-      const fileName = "Diez-Gallery-" + safeName(out.title) + ".pdf";
-      const mb = (out.pdf.length / 1048576).toFixed(1) + " MB";
+      const base = "Diez-Gallery-" + safeName(out.title);
+      const pdfName = base + ".pdf";
+      const pkg = await buildIdml(out.model, base);
+      const zipName = base + "-InDesign.zip";
+      const mb = (b) => (b.length / 1048576).toFixed(1) + " MB";
+      const secs = () => ((Date.now() - t0) / 1000).toFixed(0) + " s";
       if (DRY) {
         fs.mkdirSync("out", { recursive: true });
-        fs.writeFileSync(path.join("out", fileName), out.pdf);
-        console.log(s + ": " + mb + " written to out/ in " + ((Date.now() - t0) / 1000).toFixed(0) + " s");
+        fs.writeFileSync(path.join("out", pdfName), out.pdf);
+        fs.writeFileSync(path.join("out", zipName), pkg.zip);
+        console.log(s + ": PDF " + mb(out.pdf) + ", InDesign " + mb(pkg.zip) + " (" + pkg.pages + " pages, " + pkg.links + " links) written to out/ in " + secs());
         continue;
       }
-      const key = objectKey(s);
-      await upload(key, out.pdf, fileName);
-      const url = need("R2_PUBLIC_URL").replace(/\/$/, "") + "/" + key + "?v=" + Date.now().toString(36);
-      await setPdfField(token, rec.id, url);
-      console.log(s + ": " + mb + " uploaded in " + ((Date.now() - t0) / 1000).toFixed(0) + " s");
+      const v = "?v=" + Date.now().toString(36);
+      const pub = need("R2_PUBLIC_URL").replace(/\/$/, "") + "/";
+      await upload(objectKey(s), out.pdf, pdfName);
+      await upload(objectKey(s, "-indesign.zip"), pkg.zip, zipName, "application/zip");
+      await setFields(token, rec.id, {
+        PDF: pub + objectKey(s) + v,
+        InDesign: pub + objectKey(s, "-indesign.zip") + v,
+      });
+      console.log(s + ": PDF " + mb(out.pdf) + ", InDesign " + mb(pkg.zip) + " uploaded in " + secs());
     } catch (e) {
       failed++;
       console.error(s + ": failed (" + e.message + ")");

@@ -316,7 +316,7 @@ function buildPdf2({ room, participants, items, imageFor, wallFor, introParas })
 // Builds the pdf2 file for a room. Used by the Vercel endpoint (with the
 // response-size budget) and by scripts/build-pdf.js on GitHub Actions (no
 // budget: full-resolution images). Returns { pdf, title } or { error, status }.
-async function generatePdf2({ slug, token, wallMode = true, maxBytes = MAX_BYTES, caps = { view: 2200, work: 1600 } }) {
+async function generatePdf2({ slug, token, wallMode = true, maxBytes = MAX_BYTES, caps = { view: 2200, work: 1600 }, withModel = false }) {
   const vrData = await airtable(token, TBL_VR, {
     filterByFormula: '{URL slug} = "' + slug + '"', maxRecords: 1, fields: ROOM_FIELDS,
   });
@@ -435,7 +435,10 @@ async function generatePdf2({ slug, token, wallMode = true, maxBytes = MAX_BYTES
     pdf = await build(walls);
   }
   if (limited && pdf.length > maxBytes && wallMode) pdf = await build(null);
-  return { pdf, title: room.title, recordId: rec.id };
+  const out = { pdf, title: room.title, recordId: rec.id };
+  // The page model, for the InDesign export (scripts/idml.js).
+  if (withModel) out.model = { room, participants, items, imgs, walls, introParas };
+  return out;
 }
 
 function safeFileName(title) {
@@ -467,3 +470,4 @@ async function handler(req, res) {
 module.exports = handler;
 module.exports.generatePdf2 = generatePdf2;
 module.exports.safeFileName = safeFileName;
+module.exports.layout = { P, CAPTION_W, CAPTION_BOTTOM, captionLines, priceText };

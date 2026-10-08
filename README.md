@@ -86,6 +86,11 @@ Extra environment variables:
   the room's slug; every night it refreshes the rooms that already have a
   PDF and removes the PDFs of expired rooms.
 
+  Each run also builds an InDesign package (`scripts/idml.js`): a .zip with
+  an .idml of the same layout (editable text, named paragraph styles in
+  Replica Pro) and a Links folder with every image. Its link goes to the
+  room's `InDesign` field in Airtable (internal, not shown on the room).
+
   Repository secrets: `AIRTABLE_PAT` (read + write), `R2_ACCOUNT_ID`,
   `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL`.
   The repository is public, so Actions logs are public: the script only
