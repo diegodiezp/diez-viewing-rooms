@@ -69,3 +69,24 @@ Extra environment variables:
 - `STOCK_SECRET`: 32+ random characters, signs the session cookie
 - `STOCK_AIRTABLE_PAT`: token with `data.records:read` and
   `data.records:write` on this base only
+
+## Viewing room PDFs
+
+- `/:slug/pdf`: portrait PDF, generated live on Vercel (`api/_lib/pdf.js`).
+- `/:slug/pdf2`: landscape PDF in the gallery's own layout, generated live
+  (`api/_lib/pdf2.js`). Works sit on an extended wall
+  (`api/_lib/wallextend.js`); `?wall=0` turns that off. Vercel caps the
+  response at ~4.5 MB and 60 s, so images are re-encoded to fit
+  (`api/_lib/pdfimages.js`).
+- Full quality: `.github/workflows/pdf.yml` runs `scripts/build-pdf.js` on
+  GitHub Actions (no size or time limit), uploads the PDF to Cloudflare R2
+  and writes its link into the room's `PDF` field in Airtable. The room's
+  "Download PDF" button uses that link when present, `/:slug/pdf2`
+  otherwise. Run it from Actions > "Viewing room PDFs" > Run workflow with
+  the room's slug; every night it refreshes the rooms that already have a
+  PDF and removes the PDFs of expired rooms.
+
+  Repository secrets: `AIRTABLE_PAT` (read + write), `R2_ACCOUNT_ID`,
+  `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL`.
+  The repository is public, so Actions logs are public: the script only
+  prints slugs, sizes and timings.

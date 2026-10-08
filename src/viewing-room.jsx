@@ -529,7 +529,8 @@ function Landing({ room, works, onSelect }) {
               </a>
             ))}
             {room.slug && (
-              <a href={'/' + encodeURIComponent(room.slug) + '/pdf?dl=1'}
+              <a href={room.pdfUrl || ('/' + encodeURIComponent(room.slug) + '/pdf2?dl=1')}
+                target={room.pdfUrl ? '_blank' : undefined} rel="noopener noreferrer"
                 onClick={() => trackEngagement('PDF Download', null, 'Viewing room PDF')}
                 style={{ display:'inline-block', fontSize:12,
                   letterSpacing:'0.08em', textTransform:'uppercase', color:'#666666',
@@ -979,6 +980,9 @@ function App() {
       const installAttachments = vr['Installation Views'] || [];
       setRoom({
         gallery: 'Diez Gallery', slug, title: vr['Name'] || 'Viewing Room',
+        // Full-quality PDF built on GitHub Actions (R2 link in Airtable's "PDF"
+        // field); without it, the PDF is generated live by /:slug/pdf2.
+        pdfUrl: /^https:\/\//.test(vr['PDF'] || '') ? vr['PDF'] : '',
         dates: formatDates(vr['Start Date'], vr['End Date']), booth: '', intro: vr['Introduction'] || '',
         files: attachments.map((att, i) => ({
           url: '/api/attachment?id=' + vrRecordId + '&index=' + i,

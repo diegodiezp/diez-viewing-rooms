@@ -313,7 +313,136 @@ function buildPdf2({ room, participants, items, imageFor, wallFor, introParas })
   });
 }
 
-module.exports = async function handler(req, res) {
+// Builds the pdf2 file for a room. Used by the Vercel endpoint (with the
+// response-size budget) and by scripts/build-pdf.js on GitHub Actions (no
+// budget: full-resolution images). Returns { pdf, title } or { error, status }.
+async function generatePdf2({ slug, token, wallMode = true, maxBytes = MAX_BYTES, caps = { view: 2200, work: 1600 } }) {
+  const vrData = await airtable(token, TBL_VR, {
+    filterByFormula: '{URL slug} = "' + slug + '"', maxRecords: 1, fields: ROOM_FIELDS,
+  });
+  const rec = vrData.records && vrData.records[0];
+  if (!rec) return { status: 404, error: "Viewing room not found" };
+  const vr = rec.fields;
+  if (vr["Expires"] && new Date(vr["Expires"]) < new Date()) {
+    return { status: 410, error: "This viewing room is no longer available" };
+  }
+
+  const sections = [1, 2, 3].map((no) => ({
+    views: vr["Installation Views " + no] || [],
+    workIds: vr["Artworks " + no] || [],
+  })).filter((s) => s.views.length || s.workIds.length);
+  const sectioned = sections.length > 0;
+
+  const allWorkIds = [...new Set(sectioned ? sections.flatMap((s) => s.workIds) : (vr["Artworks"] || []))];
+  if (!allWorkIds.length) return { status: 404, error: "This viewing room has no artworks yet" };
+
+  const artworkRecs = await fetchByIds(token, TBL_ARTWORKS, allWorkIds, ARTWORK_FIELDS);
+  const artistIds = [...new Set(artworkRecs.flatMap((a) => a.fields["Artist name"] || []))];
+  const artistMap = {};
+  if (artistIds.length) {
+    (await fetchByIds(token, TBL_ARTISTS, artistIds, ["Name"])).forEach((a) => {
+      artistMap[a.id] = a.fields["Name"] || "";
+    });
+  }
+
+  const workById = new Map(artworkRecs.map((aw) => {
+    const f = aw.fields;
+    const status = (f["Status"] || "").trim();
+    const onHold = status === "On hold", sold = status === "Sold";
+    const nonPublic = status === "Not available" || status === "Consigned" || status === "Offered";
+    const available = !sold && !onHold && !nonPublic;
+    const info = splitInfo(f["Info (Backup)"]);
+    return [aw.id, {
+      id: aw.id,
+      title: f["Title"] || "Untitled",
+      artist: (f["Artist name"] || []).map((id) => artistMap[id]).filter(Boolean).join(", "),
+      year: f["Year (display)"] || f["Year"] || "",
+      medium: info.medium, lines: info.lines,
+      price: f["Price €"] || null,
+      showPrice: available || onHold,
+      statusLabel: onHold ? "On hold" : sold ? "Sold" : available ? "Available" : "Not available",
+      tiers: attachmentTiers((f["Image"] || [])[0]),
+    }];
+  }));
+
+  const workItem = (id) => (workById.has(id) ? { kind: "work", work: workById.get(id) } : null);
+  const viewItems = (atts) => atts.map((att) => ({ kind: "view", tiers: attachmentTiers(att) }));
+
+  // Sectioned rooms keep their own order. Single rooms: installation views
+  // first, then the works (the order of the gallery's hand-made PDFs).
+  let items = sectioned
+    ? sections.flatMap((s) => [...viewItems(s.views), ...s.workIds.map(workItem).filter(Boolean)])
+    : [...viewItems(vr["Installation Views"] || []), ...(vr["Artworks"] || []).map(workItem).filter(Boolean)];
+  const seen = new Set();
+  items = items.filter((it) => {
+    if (it.kind !== "work") return true;
+    if (seen.has(it.work.id)) return false;
+    seen.add(it.work.id);
+    return true;
+  });
+
+  // Participants: every artist in the room, alphabetical by surname.
+  const names = new Set();
+  items.forEach((it) => it.kind === "work" && it.work.artist &&
+    it.work.artist.split(", ").forEach((n) => names.add(n)));
+  const participants = [...names].sort((a, b) => surname(a).localeCompare(surname(b)));
+
+  const room = {
+    title: vr["Name"] || "Viewing Room",
+    datesLong: formatDatesLong(vr["Start Date"], vr["End Date"]),
+  };
+  const introParas = String(vr["Introduction"] || "").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+
+  // Images: "full" thumbnails re-encoded (see pdfimages.js). Within a size
+  // budget the extended walls need some room; without one, nothing shrinks.
+  const limited = Number.isFinite(maxBytes);
+  const imgs = await prepareImages({
+    entries: items.map((it) => ({
+      urls: it.kind === "view" ? it.tiers : it.work.tiers,
+      cap: it.kind === "view" ? caps.view : caps.work,
+    })),
+    budgetBytes: limited ? maxBytes - (wallMode ? 1100 : 300) * 1024 : Infinity,
+  });
+
+  // Extended-wall pages for the works (null = keep the white layout).
+  const measure = new PDFDocument({ size: [P.w, P.h], margin: 0 });
+  registerFonts(measure);
+  async function makeWalls(quality) {
+    return mapLimit(items, 2, async (it, i) => {
+      if (!wallMode || it.kind !== "work" || !imgs[i]) return null;
+      try {
+        const found = await findWork(imgs[i]);
+        if (!found) return null;
+        const rect = placeWork(found, captionHeight(measure, captionLines(it.work)));
+        const { buf } = await extendToPage(imgs[i], rect, P, { quality });
+        return buf;
+      } catch (e) {
+        console.error("pdf2 wall error:", e);
+        return null;
+      }
+    });
+  }
+  const build = (walls) => buildPdf2({
+    room, participants, items, introParas,
+    imageFor: (item) => imgs[items.indexOf(item)] || null,
+    wallFor: (item) => (walls && walls[items.indexOf(item)]) || null,
+  });
+
+  let walls = await makeWalls(limited ? 82 : 88);
+  let pdf = await build(walls);
+  if (limited && pdf.length > maxBytes && wallMode) {   // too heavy: lighter walls
+    walls = await makeWalls(66);
+    pdf = await build(walls);
+  }
+  if (limited && pdf.length > maxBytes && wallMode) pdf = await build(null);
+  return { pdf, title: room.title, recordId: rec.id };
+}
+
+function safeFileName(title) {
+  return (title || "viewing-room").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").slice(0, 80) || "viewing-room";
+}
+
+async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
   const token = process.env.AIRTABLE_PAT;
   if (!token) return res.status(500).json({ error: "AIRTABLE_PAT not configured" });
@@ -322,134 +451,19 @@ module.exports = async function handler(req, res) {
   if (!slug) return res.status(400).json({ error: "Missing viewing room" });
 
   try {
-    const vrData = await airtable(token, TBL_VR, {
-      filterByFormula: '{URL slug} = "' + slug + '"', maxRecords: 1, fields: ROOM_FIELDS,
-    });
-    const rec = vrData.records && vrData.records[0];
-    if (!rec) return res.status(404).json({ error: "Viewing room not found" });
-    const vr = rec.fields;
-    if (vr["Expires"] && new Date(vr["Expires"]) < new Date()) {
-      return res.status(410).json({ error: "This viewing room is no longer available" });
-    }
-
-    const sections = [1, 2, 3].map((no) => ({
-      views: vr["Installation Views " + no] || [],
-      workIds: vr["Artworks " + no] || [],
-    })).filter((s) => s.views.length || s.workIds.length);
-    const sectioned = sections.length > 0;
-
-    const allWorkIds = [...new Set(sectioned ? sections.flatMap((s) => s.workIds) : (vr["Artworks"] || []))];
-    if (!allWorkIds.length) return res.status(404).json({ error: "This viewing room has no artworks yet" });
-
-    const artworkRecs = await fetchByIds(token, TBL_ARTWORKS, allWorkIds, ARTWORK_FIELDS);
-    const artistIds = [...new Set(artworkRecs.flatMap((a) => a.fields["Artist name"] || []))];
-    const artistMap = {};
-    if (artistIds.length) {
-      (await fetchByIds(token, TBL_ARTISTS, artistIds, ["Name"])).forEach((a) => {
-        artistMap[a.id] = a.fields["Name"] || "";
-      });
-    }
-
-    const workById = new Map(artworkRecs.map((aw) => {
-      const f = aw.fields;
-      const status = (f["Status"] || "").trim();
-      const onHold = status === "On hold", sold = status === "Sold";
-      const nonPublic = status === "Not available" || status === "Consigned" || status === "Offered";
-      const available = !sold && !onHold && !nonPublic;
-      const info = splitInfo(f["Info (Backup)"]);
-      return [aw.id, {
-        id: aw.id,
-        title: f["Title"] || "Untitled",
-        artist: (f["Artist name"] || []).map((id) => artistMap[id]).filter(Boolean).join(", "),
-        year: f["Year (display)"] || f["Year"] || "",
-        medium: info.medium, lines: info.lines,
-        price: f["Price €"] || null,
-        showPrice: available || onHold,
-        statusLabel: onHold ? "On hold" : sold ? "Sold" : available ? "Available" : "Not available",
-        tiers: attachmentTiers((f["Image"] || [])[0]),
-      }];
-    }));
-
-    const workItem = (id) => (workById.has(id) ? { kind: "work", work: workById.get(id) } : null);
-    const viewItems = (atts) => atts.map((att) => ({ kind: "view", tiers: attachmentTiers(att) }));
-
-    // Sectioned rooms keep their own order. Single rooms: installation views
-    // first, then the works (the order of the gallery's hand-made PDFs).
-    let items = sectioned
-      ? sections.flatMap((s) => [...viewItems(s.views), ...s.workIds.map(workItem).filter(Boolean)])
-      : [...viewItems(vr["Installation Views"] || []), ...(vr["Artworks"] || []).map(workItem).filter(Boolean)];
-    const seen = new Set();
-    items = items.filter((it) => {
-      if (it.kind !== "work") return true;
-      if (seen.has(it.work.id)) return false;
-      seen.add(it.work.id);
-      return true;
-    });
-
-    // Participants: every artist in the room, alphabetical by surname.
-    const names = new Set();
-    items.forEach((it) => it.kind === "work" && it.work.artist &&
-      it.work.artist.split(", ").forEach((n) => names.add(n)));
-    const participants = [...names].sort((a, b) => surname(a).localeCompare(surname(b)));
-
-    const room = {
-      title: vr["Name"] || "Viewing Room",
-      datesLong: formatDatesLong(vr["Start Date"], vr["End Date"]),
-    };
-    const introParas = String(vr["Introduction"] || "").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
-
-    const wallMode = req.query.wall !== "0";
-
-    // Images: "full" thumbnails re-encoded to fit the response limit (see
-    // pdfimages.js). The extended walls add some weight, so leave room.
-    const imgs = await prepareImages({
-      entries: items.map((it) => ({
-        urls: it.kind === "view" ? it.tiers : it.work.tiers,
-        cap: it.kind === "view" ? 2200 : 1600,
-      })),
-      budgetBytes: MAX_BYTES - (wallMode ? 1100 : 300) * 1024,
-    });
-
-    // Extended-wall pages for the works (null = keep the white layout).
-    const measure = new PDFDocument({ size: [P.w, P.h], margin: 0 });
-    registerFonts(measure);
-    async function makeWalls(quality) {
-      return mapLimit(items, 2, async (it, i) => {
-        if (!wallMode || it.kind !== "work" || !imgs[i]) return null;
-        try {
-          const found = await findWork(imgs[i]);
-          if (!found) return null;
-          const rect = placeWork(found, captionHeight(measure, captionLines(it.work)));
-          const { buf } = await extendToPage(imgs[i], rect, P, { quality });
-          return buf;
-        } catch (e) {
-          console.error("pdf2 wall error:", e);
-          return null;
-        }
-      });
-    }
-    const build = (walls) => buildPdf2({
-      room, participants, items, introParas,
-      imageFor: (item) => imgs[items.indexOf(item)] || null,
-      wallFor: (item) => (walls && walls[items.indexOf(item)]) || null,
-    });
-
-    let walls = await makeWalls(82);
-    let pdf = await build(walls);
-    if (pdf.length > MAX_BYTES && wallMode) {       // too heavy: lighter walls
-      walls = await makeWalls(66);
-      pdf = await build(walls);
-    }
-    if (pdf.length > MAX_BYTES && wallMode) pdf = await build(null);
-
-    const safeName = (room.title || "viewing-room").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").slice(0, 80) || "viewing-room";
+    const out = await generatePdf2({ slug, token, wallMode: req.query.wall !== "0" });
+    if (out.error) return res.status(out.status).json({ error: out.error });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition",
-      (req.query.dl === "1" ? "attachment" : "inline") + '; filename="Diez-Gallery-' + safeName + '-2.pdf"');
+      (req.query.dl === "1" ? "attachment" : "inline") + '; filename="Diez-Gallery-' + safeFileName(out.title) + '-2.pdf"');
     res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
-    return res.status(200).send(pdf);
+    return res.status(200).send(out.pdf);
   } catch (err) {
     console.error("pdf2 error:", err);
     return res.status(500).json({ error: "Could not generate the PDF" });
   }
-};
+}
+
+module.exports = handler;
+module.exports.generatePdf2 = generatePdf2;
+module.exports.safeFileName = safeFileName;

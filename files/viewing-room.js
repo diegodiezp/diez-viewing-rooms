@@ -783,7 +783,9 @@ function Landing({
     onMouseEnter: e => e.target.style.color = '#000000',
     onMouseLeave: e => e.target.style.color = '#666666'
   }, "\u2193 ", file.filename)), room.slug && /*#__PURE__*/React.createElement("a", {
-    href: '/' + encodeURIComponent(room.slug) + '/pdf?dl=1',
+    href: room.pdfUrl || '/' + encodeURIComponent(room.slug) + '/pdf2?dl=1',
+    target: room.pdfUrl ? '_blank' : undefined,
+    rel: "noopener noreferrer",
     onClick: () => trackEngagement('PDF Download', null, 'Viewing room PDF'),
     style: {
       display: 'inline-block',
@@ -1585,6 +1587,9 @@ function App() {
         gallery: 'Diez Gallery',
         slug,
         title: vr['Name'] || 'Viewing Room',
+        // Full-quality PDF built on GitHub Actions (R2 link in Airtable's "PDF"
+        // field); without it, the PDF is generated live by /:slug/pdf2.
+        pdfUrl: /^https:\/\//.test(vr['PDF'] || '') ? vr['PDF'] : '',
         dates: formatDates(vr['Start Date'], vr['End Date']),
         booth: '',
         intro: vr['Introduction'] || '',
