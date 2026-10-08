@@ -120,14 +120,11 @@ function buildPdf2({ room, participants, items, imageFor, introParas }) {
     }
 
     // Quiet branding for the work pages (the full-bleed views, title page and
-    // closing page carry none): a small half-transparent logo top left and one
+    // closing page carry none): a small black logo top left and one
     // line of contact details in light grey at the bottom.
     function workBranding() {
       try {
-        doc.save();
-        doc.opacity(0.45);
         doc.image(path.join(files, "logo.png"), P.m, 20, { width: 32 });
-        doc.restore();
       } catch (e) { /* decorative */ }
       const parts = [
         { t: "Gibraltarstraat 74-B, Amsterdam" },
