@@ -102,8 +102,20 @@ function buildPdf2({ room, participants, items, imageFor, introParas }) {
       logo(P.m, P.h - 80, 94);
     }
 
+    // Installation views bleed off all four edges: the image is scaled to
+    // cover the page and the overflow is cropped (centred). Portrait views
+    // would lose most of their content when cropped to landscape, so those
+    // are fitted instead.
     function viewPage(buf) {
       newPage();
+      if (!buf) return;
+      try {
+        const img = doc.openImage(buf);
+        if (img.width / img.height >= 1) {
+          doc.image(img, 0, 0, { cover: [P.w, P.h], align: "center", valign: "center" });
+          return;
+        }
+      } catch (e) { /* fall through to the fitted version */ }
       drawImage(buf, 0, 16, P.w, P.h - 32);
     }
 
@@ -263,7 +275,7 @@ module.exports = async function handler(req, res) {
     const imgs = await prepareImages({
       entries: items.map((it) => ({
         urls: it.kind === "view" ? it.tiers : it.work.tiers,
-        cap: it.kind === "view" ? 2000 : 1600,
+        cap: it.kind === "view" ? 2200 : 1600,
       })),
       budgetBytes: MAX_BYTES - 300 * 1024,
     });
