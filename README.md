@@ -91,7 +91,9 @@ Extra environment variables:
   Replica Pro) and a Links folder with every image. Its link goes to the
   room's `InDesign` field in Airtable (internal, not shown on the room).
 
-  Repository secrets: `AIRTABLE_PAT` (read + write), `R2_ACCOUNT_ID`,
-  `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL`.
+  Repository secrets: `AIRTABLE_PAT` (read + write), `R2_ACCESS_KEY_ID`,
+  `R2_SECRET_ACCESS_KEY` (R2 token "diez-pdfs-github-actions", Object Read &
+  Write on `diez-gallery` only). Bucket, account and public URL are set in
+  the workflow file. PDFs live under `pdfs/` in the `diez-gallery` bucket.
   The repository is public, so Actions logs are public: the script only
   prints slugs, sizes and timings.

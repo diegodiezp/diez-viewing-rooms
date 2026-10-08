@@ -38,8 +38,9 @@ jobs:
         env:
           SLUG: ${{ github.event.inputs.slug }}
           AIRTABLE_PAT: ${{ secrets.AIRTABLE_PAT }}
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
-          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          # Not secret: where the files go and the bucket's public address.
+          R2_ACCOUNT_ID: 9727e28dd1da07947109d7cb4812a2bb
+          R2_BUCKET: diez-gallery
+          R2_PUBLIC_URL: https://pub-8b157f2d1d4d40ab9a88c9d9b9639d7b.r2.dev
