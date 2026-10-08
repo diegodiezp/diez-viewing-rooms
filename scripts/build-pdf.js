@@ -99,7 +99,9 @@ const safeName = (t) => (t || "viewing-room").replace(/[^\w\- ]+/g, "").trim().r
 
 (async () => {
   const token = need("AIRTABLE_PAT");
-  const slug = String(env.SLUG || "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
+  // Keep the slug exactly as in Airtable (some have capitals or "_"); only
+  // drop characters that could break the Airtable formula.
+  const slug = String(env.SLUG || "").trim().replace(/^.*rooms\.diez\.gallery\//, "").replace(/[^A-Za-z0-9_.-]/g, "");
   const rooms = await listRooms(token, slug);
   if (!rooms.length) {
     console.log(slug ? "No room with slug " + slug : "No rooms with a PDF to refresh");
