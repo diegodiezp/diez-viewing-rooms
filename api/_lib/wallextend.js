@@ -1,12 +1,13 @@
 // Extends the wall of an artwork photo to fill the whole page, so the photo
 // has no visible edge: the work appears to hang on a wall that is the page.
 //
-// How: the photo keeps its place on the page; every page pixel outside it
-// takes the colour of the nearest point on the photo's edge, read from a
-// heavily smoothed copy of the photo (so lighting gradients continue but
-// texture and small details do not), getting smoother with distance. Near
-// the photo's edge the real pixels fade into that smoothed wall, and a touch
-// of grain is added to the synthetic wall so it matches the photograph.
+// How: the photo keeps its place on the page. Beside it, every row of the
+// page continues the colour of that row at the photo's edge; above and below
+// it, every column continues its column's edge colour. Edge colours are
+// medians across a thin band, smoothed along the edge without blurring
+// across it, so the wall's light falloff, the floor and the skirting line
+// carry on sharp instead of turning into smudges. The photo fades into that
+// over a short band and the synthetic part gets a touch of grain.
 //
 // It only works when there is plain wall (or floor) around the work. If the
 // photo is cropped tight to the work, it returns null and the caller falls
@@ -69,67 +70,76 @@ async function extendToPage(photoBuf, rect, page, opts = {}) {
   const detail = await borderDetail(src, W, H);
   if (detail > (opts.maxDetail || 0.05)) return { buf: null, detail };
 
-  // Small copies of the photo: plain (wall colour) and two smoothed ones.
-  const k = 8;
-  const sw = Math.max(16, Math.round(W / k)), sh = Math.max(16, Math.round(H / k));
-  const base = sharp(src, { raw: { width: W, height: H, channels: 3 } }).resize(sw, sh, { fit: "fill" });
-  const plain = await base.clone().raw().toBuffer();
-  const WALL = borderColour(plain, sw, sh, 2);
-
-  const near = await base.clone().blur(2.5).raw().toBuffer();
-  const far = await base.clone().blur(9).raw().toBuffer();
-
   const s = W / rect.w;
   const CW = Math.round(page.w * s), CH = Math.round(page.h * s);
   const ox = Math.round(rect.x * s), oy = Math.round(rect.y * s);
-  const F = Math.max(8, Math.round(Math.min(W, H) * 0.07)); // feather width (px)
-  const reach = Math.min(W, H) * 0.25;                      // distance to full smoothing
-  const settle = Math.min(W, H) * 0.6;                      // distance to the plain wall colour
 
-  // Bilinear sample of a small smoothed copy at full-resolution coords.
-  function sample(buf, px, py, out) {
-    const fx = clamp((px + 0.5) / W * sw - 0.5, 0, sw - 1);
-    const fy = clamp((py + 0.5) / H * sh - 0.5, 0, sh - 1);
-    const x0 = fx | 0, y0 = fy | 0, x1 = Math.min(x0 + 1, sw - 1), y1 = Math.min(y0 + 1, sh - 1);
-    const ax = fx - x0, ay = fy - y0;
-    const i00 = (y0 * sw + x0) * 3, i10 = (y0 * sw + x1) * 3, i01 = (y1 * sw + x0) * 3, i11 = (y1 * sw + x1) * 3;
-    for (let c = 0; c < 3; c++) {
-      const top = buf[i00 + c] * (1 - ax) + buf[i10 + c] * ax;
-      const bot = buf[i01 + c] * (1 - ax) + buf[i11 + c] * ax;
-      out[c] = top * (1 - ay) + bot * ay;
-    }
-  }
-
-  // 1) The synthetic wall is smooth, so it is computed at 1/4 resolution and
-  //    scaled up by sharp (16x fewer pixels in JavaScript).
-  const q = 4;
-  const LW = Math.ceil(CW / q), LH = Math.ceil(CH / q);
-  const low = Buffer.alloc(LW * LH * 3);
-  const a = [0, 0, 0], b = [0, 0, 0];
-  for (let ly = 0; ly < LH; ly++) {
-    const py = ly * q + q / 2 - oy;
-    for (let lx = 0; lx < LW; lx++) {
-      const px = lx * q + q / 2 - ox;
-      const cx = clamp(px, 0, W - 1), cy = clamp(py, 0, H - 1);
-      // Smoothed edge colour, smoother further out, drifting to the plain
-      // wall colour so edge shadows and vignetting don't get stretched.
-      const dist = Math.hypot(px - cx, py - cy);
-      const t = Math.min(1, dist / reach);
-      const u = dist > 0 ? smoothstep(Math.min(1, dist / settle)) : 0;
-      sample(near, cx, cy, a);
-      if (t > 0) sample(far, cx, cy, b);
-      const o = (ly * LW + lx) * 3;
+  // Edge profiles: for every row, the colour of the photo's left and right
+  // edge; for every column, the colour of its top and bottom edge. Each is
+  // the median across a thin band (so grain and specks don't count), then
+  // median-smoothed ALONG the edge, which keeps steps such as the floor line
+  // or a skirting board sharp while removing texture.
+  const bandX = Math.max(3, Math.round(W * 0.012)), bandY = Math.max(3, Math.round(H * 0.012));
+  const median = (arr) => { arr.sort((p, q) => p - q); return arr[arr.length >> 1]; };
+  function profile(len, band, pick, radiusFrac) {
+    const out = [new Float32Array(len), new Float32Array(len), new Float32Array(len)];
+    const tmp = [];
+    for (let t = 0; t < len; t++) {
       for (let c = 0; c < 3; c++) {
-        const edge = a[c] * (1 - t) + b[c] * t;
-        low[o + c] = edge * (1 - u) + WALL[c] * u;
+        tmp.length = 0;
+        for (let b = 0; b < band; b++) tmp.push(src[pick(t, b) + c]);
+        out[c][t] = median(tmp);
       }
     }
+    // smooth along the edge: running median, then a short mean. Sides use a
+    // tiny radius so thin horizontal lines (skirting, floor edge) survive;
+    // top and bottom a wide one so floor or wall texture doesn't turn into
+    // vertical stripes.
+    const r = Math.max(2, Math.round(len * radiusFrac));
+    return out.map((ch) => {
+      const med = new Float32Array(len), win = [];
+      for (let t = 0; t < len; t++) {
+        win.length = 0;
+        for (let k = Math.max(0, t - r); k <= Math.min(len - 1, t + r); k++) win.push(ch[k]);
+        med[t] = median(win);
+      }
+      const m = radiusFrac >= 0.01 ? r : 2;   // wide mean only for top/bottom
+      const sm = new Float32Array(len);
+      for (let t = 0; t < len; t++) {
+        let a = 0, n = 0;
+        for (let k = Math.max(0, t - m); k <= Math.min(len - 1, t + m); k++) { a += med[k]; n++; }
+        sm[t] = a / n;
+      }
+      return sm;
+    });
   }
-  const wall = await sharp(low, { raw: { width: LW, height: LH, channels: 3 } })
-    .resize(CW, CH, { fit: "fill", kernel: "cubic" }).raw().toBuffer();
+  const idx = (x, y) => (y * W + x) * 3;
+  const left = profile(H, bandX, (y, b) => idx(b, y), 0.0008);
+  const right = profile(H, bandX, (y, b) => idx(W - 1 - b, y), 0.0008);
+  const top = profile(W, bandY, (x, b) => idx(x, b), 0.04);
+  const bottom = profile(W, bandY, (x, b) => idx(x, H - 1 - b), 0.04);
 
-  // 2) Full resolution: the photo fades into the wall over its outer band,
-  //    and the synthetic wall gets a little grain to match the photograph.
+  // Synthetic wall at a page pixel: rows continue sideways, columns continue
+  // up and down; beyond a corner, the two profiles meet at the corner colour.
+  const wallAt = (px, py, c) => {
+    const inX = px >= 0 && px < W, inY = py >= 0 && py < H;
+    const cx = px < 0 ? 0 : px >= W ? W - 1 : px, cy = py < 0 ? 0 : py >= H ? H - 1 : py;
+    if (inY && !inX) return (px < 0 ? left : right)[c][cy];
+    if (inX && !inY) return (py < 0 ? top : bottom)[c][cx];
+    if (!inX && !inY) {
+      const row = (px < 0 ? left : right)[c][cy], col = (py < 0 ? top : bottom)[c][cx];
+      return (row + col) / 2;
+    }
+    // inside the photo (feather band): profile of the nearest edge
+    const d = [px, W - 1 - px, py, H - 1 - py];
+    const m = Math.min(d[0], d[1], d[2], d[3]);
+    if (m === d[0]) return left[c][cy];
+    if (m === d[1]) return right[c][cy];
+    if (m === d[2]) return top[c][cx];
+    return bottom[c][cx];
+  };
+
+  const F = Math.max(6, Math.round(Math.min(W, H) * 0.02));   // short feather (px)
   let seed = 1234567;
   const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff - 0.5; };
   const out = Buffer.alloc(CW * CH * 3);
@@ -144,14 +154,14 @@ async function extendToPage(photoBuf, rect, page, opts = {}) {
         alpha = d >= F ? 1 : smoothstep(d / F);
       }
       if (alpha === 1) {
-        const i = (py * W + px) * 3;
+        const i = idx(px, py);
         out[o] = src[i]; out[o + 1] = src[i + 1]; out[o + 2] = src[i + 2];
         continue;
       }
-      const grain = rnd() * 3 * (1 - alpha);
-      const i = alpha > 0 ? (py * W + px) * 3 : 0;
+      const grain = rnd() * 2.5 * (1 - alpha);
+      const i = alpha > 0 ? idx(px, py) : 0;
       for (let c = 0; c < 3; c++) {
-        const v = alpha * (alpha > 0 ? src[i + c] : 0) + (1 - alpha) * wall[o + c] + grain;
+        const v = alpha * (alpha > 0 ? src[i + c] : 0) + (1 - alpha) * wallAt(px, py, c) + grain;
         out[o + c] = v < 0 ? 0 : v > 255 ? 255 : v;
       }
     }
