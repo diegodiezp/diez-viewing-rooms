@@ -358,7 +358,6 @@ function LeadGate({
   } = useViewport();
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
-  const [newsletter, setNewsletter] = useState(false);
   const [website, setWebsite] = useState(''); // honeypot, never shown
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -395,7 +394,6 @@ function LeadGate({
         body: JSON.stringify({
           email: value,
           name: name.trim(),
-          newsletter,
           slug: room.slug,
           room: room.title,
           website
@@ -528,7 +526,7 @@ function LeadGate({
     style: input
   })), /*#__PURE__*/React.createElement("div", {
     style: {
-      marginBottom: 20
+      marginBottom: 28
     }
   }, /*#__PURE__*/React.createElement("label", {
     htmlFor: "lead-name",
@@ -556,29 +554,7 @@ function LeadGate({
     autoComplete: "off",
     value: website,
     onChange: e => setWebsite(e.target.value)
-  })), /*#__PURE__*/React.createElement("label", {
-    style: {
-      display: 'flex',
-      gap: 10,
-      alignItems: 'flex-start',
-      cursor: 'pointer',
-      fontSize: 13,
-      color: '#333333',
-      lineHeight: 1.5,
-      marginBottom: 24
-    }
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "checkbox",
-    checked: newsletter,
-    onChange: e => setNewsletter(e.target.checked),
-    style: {
-      marginTop: 3,
-      accentColor: '#000000',
-      width: 15,
-      height: 15,
-      flexShrink: 0
-    }
-  }), /*#__PURE__*/React.createElement("span", null, "Also keep me informed about diez exhibitions and fairs")), error && /*#__PURE__*/React.createElement("div", {
+  })), error && /*#__PURE__*/React.createElement("div", {
     role: "alert",
     style: {
       fontSize: 13,

@@ -43,8 +43,8 @@ Commit both the source and the compiled file, with exactly these names.
 ## Booth QR (lead capture at fairs)
 
 Open any room with `?via=booth` (that is the URL the stand's QR code points
-to) and prices plus the room PDF stay hidden behind a short form: email,
-optional name, optional newsletter box. The form posts to diez-mail
+to) and prices plus the room PDF stay hidden behind a short form: email
+and optional name. The form posts to diez-mail
 (`https://t.diez.gallery/api/ev/lead`), which stores the contact in People
 (Type "Booth QR"), emails them the room and answers with a tracking token.
 The room then unlocks and the visit is logged like a campaign recipient's.

@@ -275,7 +275,6 @@ function LeadGate({ room, onClose, onUnlocked }) {
   const { isMobile } = useViewport();
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
-  const [newsletter, setNewsletter] = useState(false);
   const [website, setWebsite] = useState(''); // honeypot, never shown
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -303,7 +302,7 @@ function LeadGate({ room, onClose, onUnlocked }) {
       const res = await fetch(LEAD_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: value, name: name.trim(), newsletter,
+        body: JSON.stringify({ email: value, name: name.trim(),
           slug: room.slug, room: room.title, website }),
         signal: ctrl.signal,
       });
@@ -356,7 +355,7 @@ function LeadGate({ room, onClose, onUnlocked }) {
             autoCapitalize="none" autoCorrect="off" spellCheck={false} required
             value={email} onChange={e => { setEmail(e.target.value); setError(''); }} style={input}/>
         </div>
-        <div style={{ marginBottom:20 }}>
+        <div style={{ marginBottom:28 }}>
           <label htmlFor="lead-name" style={label}>Name (optional)</label>
           <input id="lead-name" type="text" autoComplete="name"
             value={name} onChange={e => setName(e.target.value)} style={input}/>
@@ -366,12 +365,6 @@ function LeadGate({ room, onClose, onUnlocked }) {
           <input id="lead-website" type="text" tabIndex={-1} autoComplete="off"
             value={website} onChange={e => setWebsite(e.target.value)}/>
         </div>
-        <label style={{ display:'flex', gap:10, alignItems:'flex-start', cursor:'pointer',
-          fontSize:13, color:'#333333', lineHeight:1.5, marginBottom:24 }}>
-          <input type="checkbox" checked={newsletter} onChange={e => setNewsletter(e.target.checked)}
-            style={{ marginTop:3, accentColor:'#000000', width:15, height:15, flexShrink:0 }}/>
-          <span>Also keep me informed about diez exhibitions and fairs</span>
-        </label>
         {error && (
           <div role="alert" style={{ fontSize:13, color:'#A33A2A', marginBottom:16 }}>{error}</div>
         )}
