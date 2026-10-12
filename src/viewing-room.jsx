@@ -12,9 +12,30 @@ const EMAIL        = 'diego@diez.gallery';
 // Engagement tracking endpoint (lives in diez-mail, not in this project)
 const ENGAGEMENT_URL = 'https://t.diez.gallery/api/ev';
 
-// Read the tracking token once. If absent, the visitor is anonymous and
-// nothing will be logged.
-const TRACKING_TOKEN = new URLSearchParams(window.location.search).get('t');
+const URL_PARAMS = new URLSearchParams(window.location.search);
+
+// Booth QR. The QR on a fair stand opens the room with ?via=booth. In that
+// case prices and the room PDF stay hidden until the visitor leaves an email
+// (LeadGate below). diez-mail stores the contact, emails them the room and
+// answers with a tracking token, so from then on the visit is logged exactly
+// like a campaign recipient's. Links sent by email (?t=...) and the plain
+// room URL are not affected: the gate only exists with ?via=booth.
+const VIA_BOOTH = URL_PARAMS.get('via') === 'booth';
+const LEAD_URL = 'https://t.diez.gallery/api/ev/lead';
+const LEAD_TOKEN_KEY = 'diez_booth_t';
+const LEAD_UNLOCKED_KEY = 'diez_booth_unlocked';
+function readStore(key) { try { return window.localStorage.getItem(key); } catch (e) { return null; } }
+function writeStore(key, value) { try { window.localStorage.setItem(key, value); } catch (e) {} }
+
+// Tracking token. From the URL (email links) or, for a booth visitor who
+// already left their email on this phone, from localStorage. If absent, the
+// visitor is anonymous and nothing will be logged. Reassigned when the booth
+// gate is unlocked (see App.unlockGate).
+let TRACKING_TOKEN = URL_PARAMS.get('t') || (VIA_BOOTH ? readStore(LEAD_TOKEN_KEY) : null);
+const BOOTH_LOCKED_AT_START = VIA_BOOTH && !TRACKING_TOKEN && readStore(LEAD_UNLOCKED_KEY) !== '1';
+
+// Shared by the price blocks, the PDF link and the gate itself.
+const GateContext = React.createContext({ locked: false, openGate: () => {} });
 
 // Fire an engagement event without blocking navigation. Uses sendBeacon when
 // available so it survives page transitions, falls back to fetch keepalive.
@@ -46,8 +67,11 @@ function trackEngagement(event_type, artwork_id, artwork_title) {
 
 // Link to another viewing room. Keeps the ?t= tracking token so an
 // identified collector stays identified when moving between rooms.
+// A booth visitor who hasn't left an email yet keeps ?via=booth, so related
+// rooms stay gated too.
 function roomHref(slug) {
-  const q = TRACKING_TOKEN ? '?t=' + encodeURIComponent(TRACKING_TOKEN) : '';
+  const q = TRACKING_TOKEN ? '?t=' + encodeURIComponent(TRACKING_TOKEN)
+    : VIA_BOOTH ? '?via=booth' : '';
   return '/' + encodeURIComponent(slug) + q;
 }
 
@@ -227,6 +251,141 @@ function InquireBtn({ small, artist, title, artworkId, onHold }) {
           textUnderlineOffset: 3, fontFamily: "'Replica', sans-serif" }}>
         WhatsApp
       </a>
+    </div>
+  );
+}
+
+// ── BOOTH GATE ────────────────────────────────────────────────────────────────
+// Shown instead of a price while the booth gate is locked.
+function PriceGate({ small }) {
+  const { openGate } = React.useContext(GateContext);
+  return (
+    <button type="button"
+      onClick={e => { e.stopPropagation(); openGate(); }}
+      style={{ background:'none', border:'none', padding:0, cursor:'pointer',
+        fontFamily:"'Replica', sans-serif", fontSize: small ? 11 : 12,
+        letterSpacing:'0.08em', textTransform:'uppercase', color:'#000000',
+        borderBottom:'1px solid #000000', paddingBottom:1, marginBottom:8 }}>
+      See price
+    </button>
+  );
+}
+
+function LeadGate({ room, onClose, onUnlocked }) {
+  const { isMobile } = useViewport();
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [newsletter, setNewsletter] = useState(false);
+  const [website, setWebsite] = useState(''); // honeypot, never shown
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const emailRef = useRef(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => emailRef.current && emailRef.current.focus(), 150);
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => { clearTimeout(t); window.removeEventListener('keydown', onKey); };
+  }, []);
+
+  async function submit(e) {
+    e.preventDefault();
+    if (busy) return;
+    const value = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    setBusy(true); setError('');
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
+    try {
+      const res = await fetch(LEAD_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: value, name: name.trim(), newsletter,
+          slug: room.slug, room: room.title, website }),
+        signal: ctrl.signal,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 400) {
+        setError(data.error || 'Please check your email address.');
+        setBusy(false);
+        return;
+      }
+      // Any other outcome unlocks: with a token when the server stored the
+      // lead, without one if it failed. A visitor standing at the booth
+      // should never be stuck because of fair Wi-Fi or our server.
+      onUnlocked(res.ok && data.t ? data.t : null);
+    } catch (err) {
+      onUnlocked(null);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  const label = { display:'block', fontSize:10, letterSpacing:'0.12em', textTransform:'uppercase',
+    color:'#666666', marginBottom:6 };
+  const input = { width:'100%', fontFamily:"'Replica', sans-serif", fontSize:16, color:'#000000',
+    background:'#FFFFFF', border:'none', borderBottom:'1px solid #000000', borderRadius:0,
+    padding:'8px 0', outline:'none', WebkitAppearance:'none' };
+
+  return (
+    <div role="dialog" aria-modal="true" aria-labelledby="lead-gate-title"
+      onClick={onClose}
+      style={{ position:'fixed', inset:0, zIndex:1000, background:'rgba(255,255,255,0.88)',
+        display:'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent:'center',
+        animation:'fadeIn 0.2s both' }}>
+      <form onSubmit={submit} onClick={e => e.stopPropagation()} noValidate
+        style={{ width:'100%', maxWidth: isMobile ? '100%' : 440, background:'#FFFFFF',
+          border:'1px solid #000000', borderBottom: isMobile ? 'none' : '1px solid #000000',
+          padding: isMobile ? '28px 20px 32px' : '36px 40px 40px', position:'relative',
+          animation:'fadeUp 0.3s both cubic-bezier(0.22,0.68,0,1)' }}>
+        <button type="button" onClick={onClose} aria-label="Close"
+          style={{ position:'absolute', top:14, right:16, background:'none', border:'none',
+            cursor:'pointer', fontSize:20, lineHeight:1, color:'#666666', padding:4 }}>×</button>
+        <div className="subtitle-gray" style={{ marginBottom:10 }}>{room.title}</div>
+        <h2 id="lead-gate-title" style={{ fontFamily:"'Replica', sans-serif", fontWeight:400,
+          fontSize: isMobile ? 22 : 24, lineHeight:1.2, marginBottom:12 }}>Prices &amp; PDF</h2>
+        <p className="body-text" style={{ marginBottom:24 }}>
+          Leave your email to see prices. We will also send you this viewing room, so you have it after the fair.
+        </p>
+        <div style={{ marginBottom:20 }}>
+          <label htmlFor="lead-email" style={label}>Email</label>
+          <input id="lead-email" ref={emailRef} type="email" inputMode="email" autoComplete="email"
+            autoCapitalize="none" autoCorrect="off" spellCheck={false} required
+            value={email} onChange={e => { setEmail(e.target.value); setError(''); }} style={input}/>
+        </div>
+        <div style={{ marginBottom:20 }}>
+          <label htmlFor="lead-name" style={label}>Name (optional)</label>
+          <input id="lead-name" type="text" autoComplete="name"
+            value={name} onChange={e => setName(e.target.value)} style={input}/>
+        </div>
+        <div aria-hidden="true" style={{ position:'absolute', left:-9999, top:-9999 }}>
+          <label htmlFor="lead-website">Website</label>
+          <input id="lead-website" type="text" tabIndex={-1} autoComplete="off"
+            value={website} onChange={e => setWebsite(e.target.value)}/>
+        </div>
+        <label style={{ display:'flex', gap:10, alignItems:'flex-start', cursor:'pointer',
+          fontSize:13, color:'#333333', lineHeight:1.5, marginBottom:24 }}>
+          <input type="checkbox" checked={newsletter} onChange={e => setNewsletter(e.target.checked)}
+            style={{ marginTop:3, accentColor:'#000000', width:15, height:15, flexShrink:0 }}/>
+          <span>Also keep me informed about diez exhibitions and fairs</span>
+        </label>
+        {error && (
+          <div role="alert" style={{ fontSize:13, color:'#A33A2A', marginBottom:16 }}>{error}</div>
+        )}
+        <button type="submit" disabled={busy}
+          style={{ width:'100%', background:'#000000', color:'#FFFFFF', border:'1px solid #000000',
+            padding:'14px 22px', fontSize:11, letterSpacing:'0.12em', textTransform:'uppercase',
+            fontFamily:"'Replica', sans-serif", cursor: busy ? 'default' : 'pointer',
+            opacity: busy ? 0.6 : 1, borderRadius:1 }}>
+          {busy ? 'One moment…' : 'Show prices'}
+        </button>
+        <p style={{ fontSize:11, color:'#999999', lineHeight:1.5, marginTop:16 }}>
+          Your email is only used by diez to follow up on these works and is never shared.
+        </p>
+      </form>
     </div>
   );
 }
@@ -499,6 +658,7 @@ function RelatedRooms({ items, isMobile }) {
 
 function Landing({ room, works, onSelect }) {
   const { isMobile } = useViewport();
+  const { locked, openGate } = React.useContext(GateContext);
 
   return (
     <div style={{ minHeight:'100vh', background:'#FFFFFF' }}>
@@ -531,13 +691,17 @@ function Landing({ room, works, onSelect }) {
             {room.slug && (
               <a href={room.pdfUrl || ('/' + encodeURIComponent(room.slug) + '/pdf2?dl=1')}
                 target={room.pdfUrl ? '_blank' : undefined} rel="noopener noreferrer"
-                onClick={() => trackEngagement('PDF Download', null, 'Viewing room PDF')}
+                onClick={e => {
+                  // The room PDF carries prices: behind the booth gate too.
+                  if (locked) { e.preventDefault(); openGate(); return; }
+                  trackEngagement('PDF Download', null, 'Viewing room PDF');
+                }}
                 style={{ display:'inline-block', fontSize:12,
                   letterSpacing:'0.08em', textTransform:'uppercase', color:'#666666',
                   textDecoration:'none', transition:'color 0.15s' }}
                 onMouseEnter={e => e.target.style.color='#000000'}
                 onMouseLeave={e => e.target.style.color='#666666'}>
-                ↓ Download PDF
+                {locked ? '↓ Prices & PDF' : '↓ Download PDF'}
               </a>
             )}
             {room.installViews?.length > 0 && (
@@ -606,6 +770,7 @@ function Landing({ room, works, onSelect }) {
 function WorkRow({ work, index, onSelect }) {
   const [hov, setHov] = useState(false);
   const { isMobile } = useViewport();
+  const { locked } = React.useContext(GateContext);
 
   // A work that is On Hold is not "available" for direct sale but should still
   // show its price and a (waitlist) Inquire button. Sold and Not Available
@@ -646,11 +811,11 @@ function WorkRow({ work, index, onSelect }) {
         {work.year && <div className="year-value" style={{ marginTop:14 }}>{work.year}</div>}
         {work.info && <div className="details-value" style={{ marginTop:3 }}>{work.info}</div>}
         <div style={{ marginTop:20 }}>
-          {work.price && showPrice && (
+          {work.price && showPrice && (locked ? <div><PriceGate/></div> : (
             <div className="price" style={{ marginBottom:8 }}>
               {`€ ${Number(work.price).toLocaleString('de-DE')}`}
             </div>
-          )}
+          ))}
           <Dot status={work.status} available={work.available}/>
         </div>
         {showInquire && (
@@ -665,6 +830,7 @@ function WorkRow({ work, index, onSelect }) {
 
 // ── DETAIL SPLIT ──────────────────────────────────────────────────────────────
 function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
+  const { locked } = React.useContext(GateContext);
   const work = works[workIdx];
   const total = works.length;
   const idx = workIdx;
@@ -871,9 +1037,9 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
             display:'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent:'space-between',
             alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? 12 : 0 }}>
             <div>
-              {work.price && showPrice && (
+              {work.price && showPrice && (locked ? <PriceGate/> : (
                 <div className="price">€ {Number(work.price).toLocaleString('de-DE')}</div>
-              )}
+              ))}
               <div style={{ marginTop:5 }}><Dot status={work.status} available={work.available}/></div>
             </div>
             {showInquire && <InquireBtn artist={work.artist} title={work.title} artworkId={work.id} onHold={onHold}/>}
@@ -928,6 +1094,8 @@ function App() {
   const [works, setWorks] = useState([]);
   const [screen, setScreen] = useState('landing');
   const [workIdx, setWorkIdx] = useState(0);
+  const [locked, setLocked] = useState(BOOTH_LOCKED_AT_START);
+  const [gateOpen, setGateOpen] = useState(false);
   const landingScrollRef = useRef(null);
   const savedScroll = useRef(0);
 
@@ -1159,25 +1327,56 @@ function App() {
   useEffect(() => {
     const h = (e) => {
       if (screen !== 'detail') return;
+      // While the booth gate is open the keyboard belongs to the form: arrows
+      // move the cursor in the email field and Escape only closes the gate.
+      if (gateOpen) return;
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(1);
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') go(-1);
       if (e.key === 'Escape') history.back();
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
-  }, [screen, go]);
+  }, [screen, go, gateOpen]);
+
+  // Booth gate unlocked. With a token the visitor is now identified: the
+  // room open (and the work on screen, if any) is logged again under their
+  // name and active-time tracking starts. Without one (server or network
+  // failure) the prices are shown anyway and this phone isn't asked again.
+  const unlockGate = useCallback((token) => {
+    if (token) {
+      TRACKING_TOKEN = token;
+      writeStore(LEAD_TOKEN_KEY, token);
+      trackEngagement('Viewing Room Open', null, slug);
+      if (screen === 'detail' && works[workIdx]) {
+        trackEngagement('Artwork View', works[workIdx].id, works[workIdx].title);
+      }
+      startActiveTimeTracking();
+    } else {
+      writeStore(LEAD_UNLOCKED_KEY, '1');
+    }
+    setLocked(false);
+    setGateOpen(false);
+  }, [screen, works, workIdx]);
+
+  const gate = { locked, openGate: () => setGateOpen(true) };
 
   if (status === 'loading') return <Loading/>;
   if (status === 'error') return <ErrorView msg={errorMsg}/>;
-  if (screen === 'landing') {
-    return (<div ref={landingScrollRef} style={{ height:'100vh', overflowY:'auto' }}><Landing room={room} works={works} onSelect={openWork}/></div>);
-  }
   return (
-    <div style={{ height:'100vh', overflow:'hidden' }}>
-      <DetailSplit works={works} workIdx={workIdx}
-        onBack={() => history.back()} onPrev={() => go(-1)} onNext={() => go(1)}
-        onJump={(i) => setWorkIdx(i)} />
-    </div>
+    <GateContext.Provider value={gate}>
+      {screen === 'landing' ? (
+        <div ref={landingScrollRef} style={{ height:'100vh', overflowY:'auto' }}><Landing room={room} works={works} onSelect={openWork}/></div>
+      ) : (
+        <div style={{ height:'100vh', overflow:'hidden' }}>
+          <DetailSplit works={works} workIdx={workIdx}
+            onBack={() => history.back()} onPrev={() => go(-1)} onNext={() => go(1)}
+            onJump={(i) => setWorkIdx(i)} />
+        </div>
+      )}
+      {gateOpen && locked && (
+        <LeadGate room={room} onClose={() => setGateOpen(false)} onUnlocked={unlockGate}/>
+      )}
+    </GateContext.Provider>
   );
 }
 

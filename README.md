@@ -40,6 +40,23 @@ npm run compile    # regenerates files/viewing-room.js
 
 Commit both the source and the compiled file, with exactly these names.
 
+## Booth QR (lead capture at fairs)
+
+Open any room with `?via=booth` (that is the URL the stand's QR code points
+to) and prices plus the room PDF stay hidden behind a short form: email,
+optional name, optional newsletter box. The form posts to diez-mail
+(`https://t.diez.gallery/api/ev/lead`), which stores the contact in People
+(Type "Booth QR"), emails them the room and answers with a tracking token.
+The room then unlocks and the visit is logged like a campaign recipient's.
+
+- Links with `?t=` (email campaigns) and the plain room URL are never gated.
+- The token is kept in the phone's localStorage, so a returning visitor
+  isn't asked again; it is not written into the URL, so a forwarded link
+  never carries someone else's identity.
+- If diez-mail can't be reached, the room unlocks anyway (fair Wi-Fi).
+- Related rooms keep `?via=booth` (or the token) when the visitor moves on.
+- It is a soft gate: prices still reach the browser through the public proxy.
+
 ## Environment variables (Vercel)
 
 - `AIRTABLE_PAT`: Airtable personal access token (read for the proxies)
