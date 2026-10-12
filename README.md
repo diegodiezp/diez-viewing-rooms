@@ -78,6 +78,10 @@ Extra environment variables:
   (`api/_lib/wallextend.js`); `?wall=0` turns that off. Vercel caps the
   response at ~4.5 MB and 60 s, so images are re-encoded to fit
   (`api/_lib/pdfimages.js`).
+- `/:slug/pdfm`: the same room for phones (`api/_lib/pdfm.js`): 390 x 720 pt
+  pages, so phone PDF viewers show them at real size and the reader scrolls
+  down; installation views two to a page, one work per page on the extended
+  wall with the caption under it. `?wall=0` turns the wall off.
 - Full quality: `.github/workflows/pdf.yml` runs `scripts/build-pdf.js` on
   GitHub Actions (no size or time limit), uploads the PDF to Cloudflare R2
   and writes its link into the room's `PDF` field in Airtable. The room's

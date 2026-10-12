@@ -22,6 +22,7 @@ module.exports = async function handler(req, res) {
   // stay within the Hobby plan's 12-function limit).
   if (req.query.format === "pdf") return require("./_lib/pdf")(req, res);
   if (req.query.format === "pdf2") return require("./_lib/pdf2")(req, res);
+  if (req.query.format === "pdfm") return require("./_lib/pdfm")(req, res);
 
   let html = fs.readFileSync(path.join(process.cwd(), "viewing-room.html"), "utf8");
 

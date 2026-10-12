@@ -17,6 +17,10 @@
       "destination": "/api/room?vr=:slug&format=pdf2"
     },
     {
+      "source": "/:slug/pdfm",
+      "destination": "/api/room?vr=:slug&format=pdfm"
+    },
+    {
       "source": "/:slug",
       "destination": "/api/room?vr=:slug"
     }

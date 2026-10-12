@@ -316,7 +316,11 @@ function buildPdf2({ room, participants, items, imageFor, wallFor, introParas })
 // Builds the pdf2 file for a room. Used by the Vercel endpoint (with the
 // response-size budget) and by scripts/build-pdf.js on GitHub Actions (no
 // budget: full-resolution images). Returns { pdf, title } or { error, status }.
-async function generatePdf2({ slug, token, wallMode = true, maxBytes = MAX_BYTES, caps = { view: 2200, work: 1600 }, withModel = false }) {
+// Loads a room from Airtable and prepares its images: the shared first half
+// of every PDF layout (pdf2 here, the phone layout in pdfm.js). Returns
+// { room, participants, items, imgs, introParas, recordId, limited } or
+// { status, error }. reserveKB leaves room in the size budget for extras.
+async function loadRoomModel({ slug, token, maxBytes = MAX_BYTES, caps = { view: 2200, work: 1600 }, reserveKB = 300 }) {
   const vrData = await airtable(token, TBL_VR, {
     filterByFormula: '{URL slug} = "' + slug + '"', maxRecords: 1, fields: ROOM_FIELDS,
   });
@@ -401,8 +405,16 @@ async function generatePdf2({ slug, token, wallMode = true, maxBytes = MAX_BYTES
       urls: it.kind === "view" ? it.tiers : it.work.tiers,
       cap: it.kind === "view" ? caps.view : caps.work,
     })),
-    budgetBytes: limited ? maxBytes - (wallMode ? 1100 : 300) * 1024 : Infinity,
+    budgetBytes: limited ? maxBytes - reserveKB * 1024 : Infinity,
   });
+  return { room, participants, items, imgs, introParas, recordId: rec.id, limited };
+}
+
+async function generatePdf2({ slug, token, wallMode = true, maxBytes = MAX_BYTES, caps = { view: 2200, work: 1600 }, withModel = false }) {
+  const m = await loadRoomModel({ slug, token, maxBytes, caps, reserveKB: wallMode ? 1100 : 300 });
+  if (m.error) return m;
+  const { room, participants, items, imgs, introParas, limited } = m;
+  const rec = { id: m.recordId };
 
   // Extended-wall pages for the works (null = keep the white layout).
   const measure = new PDFDocument({ size: [P.w, P.h], margin: 0 });
@@ -471,3 +483,6 @@ module.exports = handler;
 module.exports.generatePdf2 = generatePdf2;
 module.exports.safeFileName = safeFileName;
 module.exports.layout = { P, CAPTION_W, CAPTION_BOTTOM, captionLines, priceText };
+module.exports.loadRoomModel = loadRoomModel;
+module.exports.registerFonts = registerFonts;
+module.exports.safeName = safeFileName;
