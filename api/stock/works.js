@@ -24,13 +24,13 @@ const TTL = 60 * 1000;
 const thumb = (a, size) =>
   (a.thumbnails && a.thumbnails[size] && a.thumbnails[size].url) || a.url;
 
-// Permanent, resized URLs through /api/stock/img (see that file for why).
+// Permanent, resized URLs through /api/image?a=... (see api/_lib/stockimg.js).
 // kind: "w" for Artworks, "x" for Exhibitions.
 function images(list, kind, rec) {
   return (list || [])
     .filter((a) => (a.type || "").startsWith("image/"))
     .map((a) => {
-      const base = a.id ? "/api/stock/img?t=" + kind + "&r=" + rec + "&a=" + a.id + "&s=" : null;
+      const base = a.id ? "/api/image?t=" + kind + "&r=" + rec + "&a=" + a.id + "&s=" : null;
       return {
         s: base ? base + "s" : thumb(a, "large"),   // 640px, grid
         l: base ? base + "l" : thumb(a, "full"),    // 1600px, detail view

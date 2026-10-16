@@ -3,7 +3,7 @@
  * Makes the stock tool usable on bad fair wifi, or none at all:
  *  - the page itself (HTML, script, fonts, logo) opens from this phone's
  *    cache instantly and refreshes in the background;
- *  - every image from /api/stock/img is kept forever once seen (its URL
+ *  - every stock image (/api/image?a=...) is kept forever once seen (its URL
  *    never changes for the same picture), so it is downloaded only once;
  *  - the page saves images ahead of time by simply requesting them (see
  *    "offline" in files/stock.js), so at the gallery, on good wifi, the
@@ -37,7 +37,7 @@ self.addEventListener("activate", function (e) {
   );
 });
 
-function isImage(url) { return url.pathname === "/api/stock/img"; }
+function isImage(url) { return url.pathname === "/api/image" && url.searchParams.has("a"); }
 function isShell(url) {
   return url.pathname === "/stock" || url.pathname === "/stock.html" || SHELL_FILES.indexOf(url.pathname) >= 0;
 }

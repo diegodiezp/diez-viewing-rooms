@@ -1,4 +1,7 @@
-// GET /api/stock/img?t=w&r=rec...&a=att...&s=s|l
+// GET /api/image?t=w&r=rec...&a=att...&s=s|l  (handled here, see api/image.js)
+//
+// Lives inside the public /api/image function rather than its own file:
+// the Hobby plan allows at most 12 functions per deployment.
 //
 // Stable, light image URLs for the stock tool.
 //
@@ -22,7 +25,7 @@
 // unresized (still permanent and cached), instead of breaking the grid.
 let sharp;
 try { sharp = require("sharp"); } catch (e) { sharp = null; }
-const { T, F, airtable } = require("../_lib/stock");
+const { T, F, airtable } = require("./stock");
 
 const EX_VIEWS = "fldJnsfNpePCHYnd9";
 const TABLES = {

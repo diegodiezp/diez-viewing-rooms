@@ -8,7 +8,7 @@
 (function () {
   "use strict";
 
-  var CACHE_KEY = "diez-stock-data-v5"; // bumped: images now come from /api/stock/img (permanent, resized)
+  var CACHE_KEY = "diez-stock-data-v5"; // bumped: images now come from /api/image?a= (permanent, resized)
   // Data younger than this is shown as is, without asking Airtable again.
   // Saves API calls when the app is opened many times in a row (fairs).
   // The refresh button always fetches fresh data.
@@ -208,7 +208,7 @@
   }
 
   // ---------- offline images ----------
-  // stock-sw.js keeps every /api/stock/img picture on the phone once it has
+  // stock-sw.js keeps every /api/image?a=... picture on the phone once it has
   // been requested. Here we request them ahead of time: the grid images
   // always (small, after every refresh), and every detail image once
   // "Save all images" has been tapped, ideally at the gallery on good wifi.
@@ -240,7 +240,7 @@
       state.shows.forEach(function (x) { x.views.forEach(function (p) { out.push(p.l); }); });
       return out;
     }
-    function ours(u) { return typeof u === "string" && u.indexOf("/api/stock/img?") === 0; }
+    function ours(u) { return typeof u === "string" && u.indexOf("/api/image?t=") === 0; }
 
     function run(urls, isFull) {
       if (!ok || !navigator.serviceWorker.controller) return;

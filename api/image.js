@@ -1,4 +1,5 @@
 const { applyCors } = require("./_lib/cors");
+const stockImage = require("./_lib/stockimg");
 
 const BASE_ID = "appkTmFvjmDLOQS4p";
 const TABLE_ID = "tblK8xDtKmakHWt6k";
@@ -7,6 +8,9 @@ const TABLE_ID = "tblK8xDtKmakHWt6k";
 const ALLOWED_FIELDS = ["Image", "Details"];
 
 module.exports = async function handler(req, res) {
+  // Stock tool images (permanent, resized): ?t=&r=&a=&s=
+  if (req.query.a) return stockImage(req, res);
+
   applyCors(req, res);
   if (req.method === "OPTIONS") return res.status(200).end();
 
