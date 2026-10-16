@@ -8,7 +8,7 @@
 (function () {
   "use strict";
 
-  var CACHE_KEY = "diez-stock-data-v4"; // bumped: payload gained ye, vd, fh/fw/fd, ownerIds and role
+  var CACHE_KEY = "diez-stock-data-v5"; // bumped: images now come from /api/stock/img (permanent, resized)
   // Data younger than this is shown as is, without asking Airtable again.
   // Saves API calls when the app is opened many times in a row (fairs).
   // The refresh button always fetches fresh data.
@@ -163,22 +163,23 @@
   }
 
   // ---------- send a work (caption + image) ----------
-  // The image is fetched as soon as the detail opens, through our own
-  // /api/image proxy (same origin, allowed by the CSP). Browsers only allow
+  // The image is fetched as soon as the detail opens. Browsers only allow
   // the share sheet right after a tap, so the file has to be ready before
-  // the tap rather than downloaded after it.
+  // the tap rather than downloaded after it. It is the same 1600px file the
+  // detail view shows, so it usually comes straight from the phone's cache
+  // instead of a second, full-size download over the fair wifi.
   var prepared = { id: null, file: null };
   function prepareImage(w) {
     prepared = { id: w.id, file: null };
     if (!w.img.length || !navigator.canShare) return;
     var slug = norm((w.artist ? w.artist + " " : "") + w.title).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "work";
-    function get(size) {
-      return fetch("/api/image?id=" + encodeURIComponent(w.id) + "&size=" + size).then(function (r) {
+    function get(url) {
+      return fetch(url).then(function (r) {
         if (!r.ok) throw new Error("image " + r.status);
         return r.blob();
       });
     }
-    get("full").catch(function () { return get("large"); }).then(function (blob) {
+    get(w.img[0].l).catch(function () { return get("/api/image?id=" + encodeURIComponent(w.id) + "&size=large"); }).then(function (blob) {
       if (prepared.id !== w.id) return;
       var type = blob.type && blob.type.indexOf("image/") === 0 ? blob.type : "image/jpeg";
       var ext = type === "image/png" ? ".png" : type === "image/webp" ? ".webp" : ".jpg";
@@ -205,6 +206,100 @@
     }
     share(w.title, text);
   }
+
+  // ---------- offline images ----------
+  // stock-sw.js keeps every /api/stock/img picture on the phone once it has
+  // been requested. Here we request them ahead of time: the grid images
+  // always (small, after every refresh), and every detail image once
+  // "Save all images" has been tapped, ideally at the gallery on good wifi.
+  // After that the fair wifi is only needed for saving changes.
+  var IMG_CACHE = "stock-img-v1";
+  var OFF_KEY = "diez-stock-offline-v1";
+  var offline = (function () {
+    var ok = "serviceWorker" in navigator && "caches" in window;
+    var job = 0;
+    var st = { running: false, done: 0, total: 0, failed: 0, full: false, gridReady: false, fullReady: false };
+    try { st.full = !!(JSON.parse(localStorage.getItem(OFF_KEY) || "{}").full); } catch (e) {}
+
+    if (ok) {
+      navigator.serviceWorker.register("/stock-sw.js", { scope: "/stock" }).catch(function () { ok = false; paint(); });
+      // First visit: the worker only starts keeping images once it controls the page
+      navigator.serviceWorker.addEventListener("controllerchange", function () { auto(); });
+    }
+
+    function live() { return state.works.filter(function (w) { return !w.archived; }); }
+    function gridUrls() {
+      var out = [];
+      live().forEach(function (w) { var i = w.img[0] || w.details[0]; if (i) out.push(i.s); });
+      state.shows.forEach(function (x) { if (x.views[0]) out.push(x.views[0].s); });
+      return out;
+    }
+    function fullUrls() {
+      var out = [];
+      live().forEach(function (w) { w.img.concat(w.details, w.install).forEach(function (p) { out.push(p.l); }); });
+      state.shows.forEach(function (x) { x.views.forEach(function (p) { out.push(p.l); }); });
+      return out;
+    }
+    function ours(u) { return typeof u === "string" && u.indexOf("/api/stock/img?") === 0; }
+
+    function run(urls, isFull) {
+      if (!ok || !navigator.serviceWorker.controller) return;
+      var me = ++job;
+      urls = urls.filter(ours).filter(function (u, i, a) { return a.indexOf(u) === i; });
+      caches.open(IMG_CACHE).then(function (c) {
+        return Promise.all(urls.map(function (u) { return c.match(u).then(function (h) { return h ? null : u; }); }));
+      }).then(function (m) {
+        if (me !== job) return;
+        var todo = m.filter(Boolean), i = 0;
+        st.running = !!todo.length; st.total = urls.length; st.done = urls.length - todo.length; st.failed = 0;
+        paint();
+        // Three at a time: quick on good wifi, gentle on a weak one
+        function next() {
+          if (me !== job || i >= todo.length) return Promise.resolve();
+          var u = todo[i++];
+          return fetch(u).then(function (r) { if (r.ok) st.done++; else st.failed++; }, function () { st.failed++; })
+            .then(function () { paint(); return next(); });
+        }
+        return Promise.all([next(), next(), next()]).then(function () {
+          if (me !== job) return;
+          st.running = false;
+          if (!st.failed) { st.gridReady = true; if (isFull) st.fullReady = true; }
+          paint();
+          if (isFull && !st.failed) toast("All images saved on this phone");
+        });
+      }).catch(function () { st.running = false; paint(); });
+    }
+
+    function auto() {
+      if (!state.works.length) return;
+      if (navigator.connection && navigator.connection.saveData) return;
+      run(st.full ? gridUrls().concat(fullUrls()) : gridUrls(), st.full);
+    }
+    function saveAll() {
+      if (st.running) return;
+      st.full = true;
+      try { localStorage.setItem(OFF_KEY, JSON.stringify({ full: true })); } catch (e) {}
+      run(gridUrls().concat(fullUrls()), true);
+    }
+    function forget() {
+      job++; st = { running: false, done: 0, total: 0, failed: 0, full: false, gridReady: false, fullReady: false };
+      try { localStorage.removeItem(OFF_KEY); } catch (e) {}
+      if ("caches" in window) caches.delete(IMG_CACHE).catch(function () {});
+    }
+    function paint() {
+      var el = document.getElementById("offline");
+      if (!el) return;
+      if (!ok || !state.works.length) { el.hidden = true; return; }
+      el.hidden = false;
+      var t;
+      if (st.running) t = "Saving images on this phone, " + st.done + " of " + st.total;
+      else if (st.failed) t = st.failed + " images not saved, tap to try again";
+      else if (st.fullReady) t = "All images saved on this phone";
+      else t = "Save all images for offline";
+      el.textContent = t;
+    }
+    return { auto: auto, saveAll: saveAll, forget: forget, paint: paint };
+  })();
 
   // ---------- data ----------
   function readCache() {
@@ -239,6 +334,7 @@
         writeCache(data);
         state.loading = false;
         render();
+        offline.auto();
       })
       .catch(function (err) {
         state.loading = false;
@@ -319,6 +415,7 @@
           // Whatever the previous account left on this phone must not outlive the sign-in
           state.works = []; state.shows = []; state.loadedAt = null; state.role = r.role || "admin";
           try { localStorage.removeItem(CACHE_KEY); } catch (e) {}
+          offline.forget();
           renderShell(); load(true);
         })
         .catch(function (err) { renderLogin(err.auth ? "Wrong password" : err.message); });
@@ -433,13 +530,16 @@
     var el = document.getElementById("summary");
     el.innerHTML =
       "<div><strong>" + list.length + "</strong>" + (list.length === 1 ? "work" : "works") +
-      (total ? '<div>' + esc(fmt(total)) + " at list price</div>" : "") + '<div class="updated" id="updated"></div>' + "</div>" +
+      (total ? '<div>' + esc(fmt(total)) + " at list price</div>" : "") + '<div class="updated" id="updated"></div>' +
+      '<button class="updated offline-btn" id="offline" hidden></button>' + "</div>" +
       '<div class="view-switch" role="group" aria-label="View">' +
       '<button data-view="grid" aria-pressed="' + (state.view === "grid") + '">Grid</button>' +
       '<button data-view="scale" aria-pressed="' + (state.view === "scale") + '">To scale</button>' +
       "</div>";
     paintUpdated();
+    offline.paint();
     el.onclick = function (e) {
+      if (e.target.closest("#offline")) { offline.saveAll(); return; }
       var b = e.target.closest("[data-view]"); if (!b) return;
       state.view = b.getAttribute("data-view"); savePrefs(); renderSummary(); renderList();
     };
@@ -1632,7 +1732,7 @@
   readCache();
   renderShell();
   function age() { return state.loadedAt ? Date.now() - new Date(state.loadedAt).getTime() : Infinity; }
-  if (age() > FRESH_MS) load(false);
+  if (age() > FRESH_MS) load(false); else offline.auto();
   document.addEventListener("visibilitychange", function () {
     // Back to the app after a while: pick up changes made elsewhere
     if (document.visibilityState === "visible") {

@@ -24,15 +24,20 @@ const TTL = 60 * 1000;
 const thumb = (a, size) =>
   (a.thumbnails && a.thumbnails[size] && a.thumbnails[size].url) || a.url;
 
-function images(list) {
+// Permanent, resized URLs through /api/stock/img (see that file for why).
+// kind: "w" for Artworks, "x" for Exhibitions.
+function images(list, kind, rec) {
   return (list || [])
     .filter((a) => (a.type || "").startsWith("image/"))
-    .map((a) => ({
-      s: thumb(a, "large"),   // ~512px, grid
-      l: thumb(a, "full"),    // ~3000px, detail view
-      w: a.width || null,
-      h: a.height || null,
-    }));
+    .map((a) => {
+      const base = a.id ? "/api/stock/img?t=" + kind + "&r=" + rec + "&a=" + a.id + "&s=" : null;
+      return {
+        s: base ? base + "s" : thumb(a, "large"),   // 640px, grid
+        l: base ? base + "l" : thumb(a, "full"),    // 1600px, detail view
+        w: a.width || null,
+        h: a.height || null,
+      };
+    });
 }
 
 function files(list) {
@@ -69,7 +74,7 @@ async function build() {
         start: f[EX.start] || "",
         end: f[EX.end] || "",
         text: f[EX.text] || "",
-        views: images(f[EX.views]),
+        views: images(f[EX.views], "x", r.id),
         artists: (f[EX.artist] || []).map((id) => artistName.get(id)).filter(Boolean),
       };
     });
@@ -118,9 +123,9 @@ async function build() {
         archived: !!f[F.archived],
         exhibitions: exhNames,
         exhibitionIds: f[F.exhibitions] || [],
-        img: images(f[F.image]),
-        details: images(f[F.details]),
-        install: images(f[F.install]),
+        img: images(f[F.image], "w", r.id),
+        details: images(f[F.details], "w", r.id),
+        install: images(f[F.install], "w", r.id),
         docs: [
           ...files(f[F.certificate]).map((x) => ({ ...x, kind: "Certificate" })),
           ...files(f[F.invoiceSale]).map((x) => ({ ...x, kind: "Invoice" })),
