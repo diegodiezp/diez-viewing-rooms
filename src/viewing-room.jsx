@@ -27,12 +27,30 @@ const LEAD_UNLOCKED_KEY = 'diez_booth_unlocked';
 function readStore(key) { try { return window.localStorage.getItem(key); } catch (e) { return null; } }
 function writeStore(key, value) { try { window.localStorage.setItem(key, value); } catch (e) {} }
 
+// A gallery phone: one signed in to the stock tool (/stock) on this domain,
+// which keeps the inventory in localStorage. A collector never has it.
+// On these phones the logo leads back to the stock instead of diez.gallery,
+// and nothing is tracked or gated: when Diego opens a link a collector sent
+// back (often still carrying their ?t= token), his own looking must not be
+// logged as the collector's interest.
+const STOCK_PHONE = (() => {
+  try {
+    for (let i = 0; i < window.localStorage.length; i++) {
+      if ((window.localStorage.key(i) || '').indexOf('diez-stock-data') === 0) return true;
+    }
+  } catch (e) {}
+  return false;
+})();
+const LOGO_LINK = STOCK_PHONE
+  ? { href: '/stock' }
+  : { href: 'https://diez.gallery', target: '_blank', rel: 'noopener noreferrer' };
+
 // Tracking token. From the URL (email links) or, for a booth visitor who
 // already left their email on this phone, from localStorage. If absent, the
 // visitor is anonymous and nothing will be logged. Reassigned when the booth
 // gate is unlocked (see App.unlockGate).
-let TRACKING_TOKEN = URL_PARAMS.get('t') || (VIA_BOOTH ? readStore(LEAD_TOKEN_KEY) : null);
-const BOOTH_LOCKED_AT_START = VIA_BOOTH && !TRACKING_TOKEN && readStore(LEAD_UNLOCKED_KEY) !== '1';
+let TRACKING_TOKEN = STOCK_PHONE ? null : (URL_PARAMS.get('t') || (VIA_BOOTH ? readStore(LEAD_TOKEN_KEY) : null));
+const BOOTH_LOCKED_AT_START = VIA_BOOTH && !STOCK_PHONE && !TRACKING_TOKEN && readStore(LEAD_UNLOCKED_KEY) !== '1';
 
 // Shared by the price blocks, the PDF link and the gate itself.
 const GateContext = React.createContext({ locked: false, openGate: () => {} });
@@ -656,7 +674,7 @@ function Landing({ room, works, onSelect }) {
   return (
     <div style={{ minHeight:'100vh', background:'#FFFFFF' }}>
       <header style={{ maxWidth:1200, margin:'0', padding: isMobile ? '32px 20px 24px' : '56px 48px 36px' }}>
-        <a href="https://diez.gallery" target="_blank" rel="noopener noreferrer" style={{ display:'inline-block', marginBottom:20, marginLeft:-4 }}>
+        <a {...LOGO_LINK} style={{ display:'inline-block', marginBottom:20, marginLeft:-4 }}>
           <img src="/files/logo.png" alt="diez" style={{ height: isMobile ? 32 : 48, width:'auto' }}/>
         </a>
         <div className="subtitle-gray">
@@ -889,7 +907,7 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
         padding: isMobile ? '10px 16px' : '14px 32px', borderBottom:'1px solid #000000', flexShrink:0 }}>
         <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 16 : 28 }}>
-          <a href="https://diez.gallery" target="_blank" rel="noopener noreferrer" style={{ display:'inline-flex', alignItems:'center' }}>
+          <a {...LOGO_LINK} style={{ display:'inline-flex', alignItems:'center' }}>
             <img src="/files/logo.png" alt="diez" style={{ height: isMobile ? 18 : 22, width:'auto', display:'block' }}/>
           </a>
           <button onClick={onBack} className="button-back">← All works</button>

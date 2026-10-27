@@ -41,12 +41,34 @@ function writeStore(key, value) {
   } catch (e) {}
 }
 
+// A gallery phone: one signed in to the stock tool (/stock) on this domain,
+// which keeps the inventory in localStorage. A collector never has it.
+// On these phones the logo leads back to the stock instead of diez.gallery,
+// and nothing is tracked or gated: when Diego opens a link a collector sent
+// back (often still carrying their ?t= token), his own looking must not be
+// logged as the collector's interest.
+const STOCK_PHONE = (() => {
+  try {
+    for (let i = 0; i < window.localStorage.length; i++) {
+      if ((window.localStorage.key(i) || '').indexOf('diez-stock-data') === 0) return true;
+    }
+  } catch (e) {}
+  return false;
+})();
+const LOGO_LINK = STOCK_PHONE ? {
+  href: '/stock'
+} : {
+  href: 'https://diez.gallery',
+  target: '_blank',
+  rel: 'noopener noreferrer'
+};
+
 // Tracking token. From the URL (email links) or, for a booth visitor who
 // already left their email on this phone, from localStorage. If absent, the
 // visitor is anonymous and nothing will be logged. Reassigned when the booth
 // gate is unlocked (see App.unlockGate).
-let TRACKING_TOKEN = URL_PARAMS.get('t') || (VIA_BOOTH ? readStore(LEAD_TOKEN_KEY) : null);
-const BOOTH_LOCKED_AT_START = VIA_BOOTH && !TRACKING_TOKEN && readStore(LEAD_UNLOCKED_KEY) !== '1';
+let TRACKING_TOKEN = STOCK_PHONE ? null : URL_PARAMS.get('t') || (VIA_BOOTH ? readStore(LEAD_TOKEN_KEY) : null);
+const BOOTH_LOCKED_AT_START = VIA_BOOTH && !STOCK_PHONE && !TRACKING_TOKEN && readStore(LEAD_UNLOCKED_KEY) !== '1';
 
 // Shared by the price blocks, the PDF link and the gate itself.
 const GateContext = React.createContext({
@@ -1033,16 +1055,13 @@ function Landing({
       margin: '0',
       padding: isMobile ? '32px 20px 24px' : '56px 48px 36px'
     }
-  }, /*#__PURE__*/React.createElement("a", {
-    href: "https://diez.gallery",
-    target: "_blank",
-    rel: "noopener noreferrer",
+  }, /*#__PURE__*/React.createElement("a", _extends({}, LOGO_LINK, {
     style: {
       display: 'inline-block',
       marginBottom: 20,
       marginLeft: -4
     }
-  }, /*#__PURE__*/React.createElement("img", {
+  }), /*#__PURE__*/React.createElement("img", {
     src: "/files/logo.png",
     alt: "diez",
     style: {
@@ -1453,15 +1472,12 @@ function DetailSplit({
       alignItems: 'center',
       gap: isMobile ? 16 : 28
     }
-  }, /*#__PURE__*/React.createElement("a", {
-    href: "https://diez.gallery",
-    target: "_blank",
-    rel: "noopener noreferrer",
+  }, /*#__PURE__*/React.createElement("a", _extends({}, LOGO_LINK, {
     style: {
       display: 'inline-flex',
       alignItems: 'center'
     }
-  }, /*#__PURE__*/React.createElement("img", {
+  }), /*#__PURE__*/React.createElement("img", {
     src: "/files/logo.png",
     alt: "diez",
     style: {
