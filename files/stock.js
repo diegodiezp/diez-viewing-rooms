@@ -301,6 +301,82 @@
     return { auto: auto, saveAll: saveAll, forget: forget, paint: paint };
   })();
 
+  // ---------- changes made without a connection ----------
+  // Status, location, notes, edits and sales made while the fair wifi is down
+  // are applied on the phone at once, kept in localStorage and sent, in
+  // order, as soon as there is a connection again. Only network failures
+  // are kept: a change Airtable refuses is reported, not retried forever.
+  var OUT_KEY = "diez-stock-outbox-v1";
+  var WRITE_TIMEOUT = 15000;
+  var outbox = [];
+  try { outbox = JSON.parse(localStorage.getItem(OUT_KEY) || "[]") || []; } catch (e) { outbox = []; }
+  var flushing = false;
+
+  function saveOut() {
+    try { localStorage.setItem(OUT_KEY, JSON.stringify(outbox)); } catch (e) {}
+    paintOutbox();
+  }
+  function enqueue(w, change, label, extra) {
+    outbox.push({ id: w.id, change: change, label: label + ", " + w.title, ownerName: extra && extra.ownerName, at: Date.now() });
+    saveOut();
+  }
+  // Same effect on the local copy as a successful save
+  function applyChange(w, change, extra) {
+    applyLocal(w, change, extra);
+    if (change.location !== undefined) w.location = change.location;
+    if (change.notes !== undefined) w.notes = change.notes.trim();
+    if (change.note !== undefined) {
+      var day = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      w.notes = (day + ": " + change.note.trim() + (w.notes ? "\n" + w.notes : "")).trim();
+    }
+  }
+  // After a refresh from Airtable, changes not sent yet are laid on top again
+  function reapplyOutbox() {
+    outbox.forEach(function (it) { var w = byId(it.id); if (w) applyChange(w, it.change, { ownerName: it.ownerName }); });
+  }
+  function kept(what, err) {
+    if (err && err.behind) { toast(what + " saved on this phone, sent after the earlier changes"); flush(); return; }
+    toast("No connection. " + what + " saved on this phone, sent when you're back online");
+  }
+  function flush() {
+    if (flushing || !outbox.length) return;
+    flushing = true; paintOutbox();
+    var sent = 0, refused = false;
+    (function next() {
+      if (!outbox.length) {
+        flushing = false; paintOutbox(); saveCache();
+        // A refused change is still shown on the phone: take Airtable's word
+        if (refused) load(true);
+        if (sent) toast(sent === 1 ? "The change saved on this phone is now in Airtable" : "The " + sent + " changes saved on this phone are now in Airtable");
+        return;
+      }
+      var it = outbox[0];
+      api("/api/stock/update", { method: "POST", body: JSON.stringify(Object.assign({ id: it.id }, it.change)), timeout: WRITE_TIMEOUT })
+        .then(function (r) {
+          outbox.shift(); sent++; saveOut();
+          next();
+        })
+        .catch(function (err) {
+          if (err.network) { flushing = false; paintOutbox(); return; }
+          if (err.auth) { flushing = false; paintOutbox(); renderLogin("Signed out. Sign in again to send the changes saved on this phone."); return; }
+          outbox.shift(); saveOut(); refused = true;
+          toast("Not saved: " + it.label + ". " + err.message);
+          next();
+        });
+    })();
+  }
+  function paintOutbox() {
+    var el = document.getElementById("outbox");
+    if (!el) return;
+    var n = outbox.length;
+    el.hidden = !n;
+    if (!n) return;
+    el.textContent = flushing ? "Sending " + n + (n === 1 ? " change" : " changes") + " to Airtable"
+      : n + (n === 1 ? " change" : " changes") + " saved on this phone, not sent yet. Tap to send";
+  }
+  window.addEventListener("online", flush);
+  setInterval(function () { if (outbox.length && document.visibilityState === "visible") flush(); }, 30 * 1000);
+
   // ---------- data ----------
   function readCache() {
     try {
@@ -315,8 +391,23 @@
   function saveCache() {
     writeCache({ at: state.loadedAt, hasLocation: state.hasLocation, works: state.works, shows: state.shows, role: state.role });
   }
+  // Network trouble (no connection, or fair wifi that hangs) rejects with
+  // err.network = true, so writes can be kept on the phone instead of lost.
   function api(path, opts) {
-    return fetch(path, Object.assign({ credentials: "same-origin", headers: { "Content-Type": "application/json" } }, opts || {}))
+    opts = opts || {};
+    // While older changes are still waiting, a new change waits behind them,
+    // so "On hold" kept offline can never land after a later "Sold".
+    if (opts.queueable && outbox.length) { var q = new Error("Queued"); q.network = true; q.behind = true; return Promise.reject(q); }
+    delete opts.queueable;
+    function netErr() { var e = new Error("No connection"); e.network = true; return e; }
+    if (navigator.onLine === false) return Promise.reject(netErr());
+    var ctl = typeof AbortController !== "undefined" && opts.timeout ? new AbortController() : null;
+    var timer = ctl ? setTimeout(function () { ctl.abort(); }, opts.timeout) : null;
+    var init = Object.assign({ credentials: "same-origin", headers: { "Content-Type": "application/json" } }, opts);
+    delete init.timeout;
+    if (ctl) init.signal = ctl.signal;
+    return fetch(path, init)
+      .then(function (r) { clearTimeout(timer); return r; }, function () { clearTimeout(timer); throw netErr(); })
       .then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (body) {
           if (r.status === 401) { var e = new Error("auth"); e.auth = true; throw e; }
@@ -331,10 +422,12 @@
       .then(function (data) {
         state.works = data.works; state.shows = data.shows || []; state.loadedAt = data.at; state.hasLocation = !!data.hasLocation; state.role = data.role || "admin";
         if (!state.hasLocation) state.f.location = [];
-        writeCache(data);
+        reapplyOutbox();
+        saveCache();
         state.loading = false;
         render();
         offline.auto();
+        flush();
       })
       .catch(function (err) {
         state.loading = false;
@@ -531,15 +624,18 @@
     el.innerHTML =
       "<div><strong>" + list.length + "</strong>" + (list.length === 1 ? "work" : "works") +
       (total ? '<div>' + esc(fmt(total)) + " at list price</div>" : "") + '<div class="updated" id="updated"></div>' +
-      '<button class="updated offline-btn" id="offline" hidden></button>' + "</div>" +
+      '<button class="updated offline-btn" id="offline" hidden></button>' +
+      '<button class="updated offline-btn pending" id="outbox" hidden></button>' + "</div>" +
       '<div class="view-switch" role="group" aria-label="View">' +
       '<button data-view="grid" aria-pressed="' + (state.view === "grid") + '">Grid</button>' +
       '<button data-view="scale" aria-pressed="' + (state.view === "scale") + '">To scale</button>' +
       "</div>";
     paintUpdated();
     offline.paint();
+    paintOutbox();
     el.onclick = function (e) {
       if (e.target.closest("#offline")) { offline.saveAll(); return; }
+      if (e.target.closest("#outbox")) { flush(); return; }
       var b = e.target.closest("[data-view]"); if (!b) return;
       state.view = b.getAttribute("data-view"); savePrefs(); renderSummary(); renderList();
     };
@@ -1408,7 +1504,7 @@
     };
   }
   function saveNotes(w, change, done) {
-    api("/api/stock/update", { method: "POST", body: JSON.stringify(Object.assign({ id: w.id }, change)) })
+    api("/api/stock/update", { method: "POST", body: JSON.stringify(Object.assign({ id: w.id }, change)), timeout: WRITE_TIMEOUT, queueable: true })
       .then(function (r) {
         w.notes = r.notes || "";
         saveCache();
@@ -1416,6 +1512,10 @@
         done(true);
       })
       .catch(function (err) {
+        if (err.network) {
+          applyChange(w, change); enqueue(w, change, change.note ? "Note" : "Notes"); saveCache();
+          kept(change.note ? "Note" : "Notes", err); done(true); return;
+        }
         if (err.auth) { renderLogin("Signed out. Sign in again."); return; }
         toast(err.message); done(false);
       });
@@ -1426,12 +1526,17 @@
     if (change.status !== undefined) w.status = change.status;
     if (change.location !== undefined) w.location = change.location;
     after(); renderBody();
-    api("/api/stock/update", { method: "POST", body: JSON.stringify(Object.assign({ id: w.id }, change)) })
+    api("/api/stock/update", { method: "POST", body: JSON.stringify(Object.assign({ id: w.id }, change)), timeout: WRITE_TIMEOUT, queueable: true })
       .then(function () {
         toast(change.status ? "Marked " + change.status.toLowerCase() : "Location saved");
         saveCache();
       })
       .catch(function (err) {
+        if (err.network) {
+          enqueue(w, change, change.status ? "Marked " + change.status.toLowerCase() : "Location");
+          saveCache(); kept(change.status ? "Status" : "Location", err);
+          return;
+        }
         w.status = before.status; w.location = before.location; after(); renderBody();
         if (err.auth) { renderLogin("Signed out. Sign in again."); return; }
         toast(err.message);
@@ -1492,7 +1597,7 @@
   }
 
   function saveWork(w, change, extra, done) {
-    api("/api/stock/update", { method: "POST", body: JSON.stringify(Object.assign({ id: w.id }, change)) })
+    api("/api/stock/update", { method: "POST", body: JSON.stringify(Object.assign({ id: w.id }, change)), timeout: WRITE_TIMEOUT, queueable: true })
       .then(function () {
         applyLocal(w, change, extra); saveCache(); renderBody();
         toast((extra && extra.toast) || "Saved");
@@ -1502,6 +1607,11 @@
         load(true).then(function () { redrawDetail(id); });
       })
       .catch(function (err) {
+        if (err.network) {
+          applyChange(w, change, extra); enqueue(w, change, change.status === "Sold" ? "Sale" : "Edit", extra);
+          saveCache(); renderBody(); kept(change.status === "Sold" || (change.set && change.set.paidArtist !== undefined) ? "Sale" : "Change", err);
+          done(true); return;
+        }
         if (err.auth) { closeSheet(); renderLogin("Signed out. Sign in again."); return; }
         toast(err.message); done(false);
       });
@@ -1732,10 +1842,11 @@
   readCache();
   renderShell();
   function age() { return state.loadedAt ? Date.now() - new Date(state.loadedAt).getTime() : Infinity; }
-  if (age() > FRESH_MS) load(false); else offline.auto();
+  if (age() > FRESH_MS) load(false); else { offline.auto(); flush(); }
   document.addEventListener("visibilitychange", function () {
     // Back to the app after a while: pick up changes made elsewhere
     if (document.visibilityState === "visible") {
+      flush();
       if (age() > FRESH_MS) load(false); else renderBody();
     }
   });
