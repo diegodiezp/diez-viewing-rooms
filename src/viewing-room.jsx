@@ -1231,7 +1231,14 @@ function App() {
         if (i >= 0) {
           setWorkIdx(i);
           setScreen('detail');
-          history.replaceState({ screen: 'detail', workIdx: i }, '', window.location);
+          // Opened straight on a work (a link sent back by a collector, or
+          // shared on WhatsApp): there is no page behind it, so "All works"
+          // (history.back) had nowhere to go. Put the room's landing under
+          // the work in the history, then the work on top.
+          const landingUrl = new URL(window.location);
+          landingUrl.searchParams.delete('work');
+          history.replaceState({ screen: 'landing' }, '', landingUrl);
+          history.pushState({ screen: 'detail', workIdx: i }, '', window.location.href);
         }
       }
 
