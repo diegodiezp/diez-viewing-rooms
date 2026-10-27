@@ -23,7 +23,7 @@ const ALLOWED_FIELDS = {
     "Related Cards", "PDF",
   ],
   "tblK8xDtKmakHWt6k": [
-    "Title", "Year", "Info (Backup)", "Status",
+    "Title", "Image", "Year", "Info (Backup)", "Status",
     "Price €", "Artist name", "Artist Index", "Details",
     "Year (display)",
   ],

@@ -1,4 +1,5 @@
-// GET /api/image?t=w&r=rec...&a=att...&s=s|l  (handled here, see api/image.js)
+// GET /api/image?t=w|x|v&r=rec...&a=att...&s=s|l|x  (handled here, see api/image.js)
+// Used by the stock tool and, since Oct 2026, by the viewing rooms too.
 //
 // Lives inside the public /api/image function rather than its own file:
 // the Hobby plan allows at most 12 functions per deployment.
@@ -28,13 +29,20 @@ try { sharp = require("sharp"); } catch (e) { sharp = null; }
 const { T, F, airtable } = require("./stock");
 
 const EX_VIEWS = "fldJnsfNpePCHYnd9";
+// byName: the viewing rooms' installation-view fields are addressed by name,
+// like everywhere else in the viewing-room code.
 const TABLES = {
   w: { table: T.artworks, fields: [F.image, F.details, F.install] },
   x: { table: T.exhibitions, fields: [EX_VIEWS] },
+  v: {
+    table: T.rooms, byName: true,
+    fields: ["Installation Views", "Installation Views 1", "Installation Views 2", "Installation Views 3"],
+  },
 };
 const SIZES = {
-  s: { box: 640, quality: 72 },
-  l: { box: 1600, quality: 80 },
+  s: { box: 640, quality: 72 },   // grids, lists, the work list in a room
+  l: { box: 1600, quality: 80 },  // detail on phones and tablets
+  x: { box: 2400, quality: 80 },  // detail and lightbox on desktop screens
 };
 
 // Signed source links for recently seen attachments, reused for 50 minutes
@@ -47,8 +55,8 @@ const SOURCE_TTL = 50 * 60 * 1000;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function fetchRecord(kind, rec) {
-  const { table, fields } = TABLES[kind];
-  const q = new URLSearchParams({ returnFieldsByFieldId: "true" });
+  const { table, fields, byName } = TABLES[kind];
+  const q = new URLSearchParams(byName ? {} : { returnFieldsByFieldId: "true" });
   for (const f of fields) q.append("fields[]", f);
   for (let attempt = 0; ; attempt++) {
     try {

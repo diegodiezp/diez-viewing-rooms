@@ -205,8 +205,22 @@ function formatDates(start, end) {
 // on purpose: under-declaring makes the browser switch to "full" slightly
 // early, never too late.
 function sharpSrcSet(largeUrl, fullUrl) {
-  return fullUrl ? largeUrl + ' 512w, ' + fullUrl + ' 2000w' : undefined;
+  if (!fullUrl) return undefined;
+  if (largeUrl.indexOf('&s=') > 0) return largeUrl + ' 640w, ' + fullUrl + (BIG === 'x' ? ' 2400w' : ' 1600w');
+  return largeUrl + ' 512w, ' + fullUrl + ' 2000w';
 }
+
+// Light, permanent image URLs (api/_lib/stockimg.js): resized once on the
+// server, keyed on the attachment ID so phones and the CDN keep them for a
+// year. Before, rooms loaded Airtable's 3000px originals (2-4 MB each),
+// which made the booth QR slow on fair wifi and 4G.
+//   s 640px (work list, installation grid), l 1600px (detail on phones and
+//   tablets), x 2400px (detail and lightbox on desktop).
+const BIG = window.innerWidth >= 1024 ? 'x' : 'l';
+function lightImg(kind, recId, att, size) {
+  return '/api/image?t=' + kind + '&r=' + recId + '&a=' + att.id + '&s=' + size;
+}
+const isImageAtt = a => a && a.id && (!a.type || a.type.indexOf('image/') === 0);
 
 // Single shared viewport hook so components don't each register their own
 // resize listener.
@@ -1409,6 +1423,22 @@ function DetailSplit({
     img.src = work.imageUrlFull;
   }, [workIdx, detailIndex]);
 
+  // Preload just what the next tap will need: this work's detail images and
+  // the main image of the works either side.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const urls = [...work.detailUrls];
+      [works[workIdx + 1], works[workIdx - 1]].forEach(w => {
+        if (w) urls.push(w.imageUrlFull);
+      });
+      urls.forEach(u => {
+        const img = new Image();
+        img.src = u;
+      });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [workIdx]);
+
   // ESC key disables zoom mode
   useEffect(() => {
     if (!zoomActive) return;
@@ -1903,8 +1933,8 @@ function App() {
       // If none of these six fields has content, the room renders exactly as
       // before from "Artworks" + "Installation Views" (single-room layout).
       const viewUrls = (field, list) => list.map((att, i) => ({
-        url: '/api/attachment?id=' + vrRecordId + '&field=' + encodeURIComponent(field) + '&index=' + i + '&size=large',
-        fullUrl: '/api/attachment?id=' + vrRecordId + '&field=' + encodeURIComponent(field) + '&index=' + i + '&size=full',
+        url: isImageAtt(att) ? lightImg('v', vrRecordId, att, 's') : '/api/attachment?id=' + vrRecordId + '&field=' + encodeURIComponent(field) + '&index=' + i + '&size=large',
+        fullUrl: isImageAtt(att) ? lightImg('v', vrRecordId, att, BIG) : '/api/attachment?id=' + vrRecordId + '&field=' + encodeURIComponent(field) + '&index=' + i + '&size=full',
         filename: att.filename || 'Installation view',
         ratio: att.width && att.height ? att.width / att.height : null
       }));
@@ -1939,8 +1969,8 @@ function App() {
           filename: att.filename || 'Document'
         })),
         installViews: sectioned ? [] : installAttachments.map((att, i) => ({
-          url: '/api/attachment?id=' + vrRecordId + '&field=Installation%20Views&index=' + i + '&size=large',
-          fullUrl: '/api/attachment?id=' + vrRecordId + '&field=Installation%20Views&index=' + i + '&size=full',
+          url: isImageAtt(att) ? lightImg('v', vrRecordId, att, 's') : '/api/attachment?id=' + vrRecordId + '&field=Installation%20Views&index=' + i + '&size=large',
+          fullUrl: isImageAtt(att) ? lightImg('v', vrRecordId, att, BIG) : '/api/attachment?id=' + vrRecordId + '&field=Installation%20Views&index=' + i + '&size=full',
           filename: att.filename || 'Installation view'
         })),
         // "Related Cards" is a lookup of each linked room's "Link Card"
@@ -1995,6 +2025,7 @@ function App() {
         const nonPublic = status === 'Not available' || status === 'Consigned' || status === 'Offered';
         const available = status !== 'Sold' && status !== 'On hold' && !nonPublic;
         const price = f['Price €'] || f['Price'] || null;
+        const main = (f['Image'] || []).filter(isImageAtt)[0] || null;
         return {
           id: aw.id,
           title: f['Title'] || 'Untitled',
@@ -2002,11 +2033,9 @@ function App() {
           // "Year (display)" is a formula in Artworks: "2019" or "2019–2021" when Year end is set.
           year: f['Year (display)'] || f['Year'] || '',
           info: f['Info (Backup)'] || '',
-          imageUrl: '/api/image?id=' + aw.id + '&size=large',
-          imageUrlFull: '/api/image?id=' + aw.id + '&size=full',
-          detailUrls: f['Details'] ? Array.from({
-            length: f['Details'].length
-          }, (_, i) => '/api/image?id=' + aw.id + '&field=Details&index=' + i + '&size=full') : [],
+          imageUrl: main ? lightImg('w', aw.id, main, 's') : '/api/image?id=' + aw.id + '&size=large',
+          imageUrlFull: main ? lightImg('w', aw.id, main, BIG) : '/api/image?id=' + aw.id + '&size=full',
+          detailUrls: (f['Details'] || []).map((a, i) => isImageAtt(a) ? lightImg('w', aw.id, a, BIG) : '/api/image?id=' + aw.id + '&field=Details&index=' + i + '&size=full'),
           status,
           available,
           price
@@ -2058,13 +2087,10 @@ function App() {
       trackEngagement('Viewing Room Open', null, slug);
       startActiveTimeTracking();
 
-      // Preload detail images in background
-      mapped.forEach(w => {
-        w.detailUrls.forEach(url => {
-          const img = new Image();
-          img.src = url;
-        });
-      });
+      // No bulk preloading here any more: it downloaded every detail image of
+      // every work as soon as the room opened, which on a phone at a fair
+      // competed with the images on screen. DetailSplit preloads only the
+      // open work's details and its neighbours.
     } catch (err) {
       console.error(err);
       setStatus('error');
