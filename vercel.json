@@ -1,4 +1,18 @@
 {
+  "redirects": [
+    {
+      "source": "/jessica-frieze",
+      "has": [
+        {
+          "type": "query",
+          "key": "via",
+          "value": "booth"
+        }
+      ],
+      "destination": "/artcologneiw?via=booth",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/stock",

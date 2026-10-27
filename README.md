@@ -56,6 +56,11 @@ The room then unlocks and the visit is logged like a campaign recipient's.
 - If diez-mail can't be reached, the room unlocks anyway (fair Wi-Fi).
 - Related rooms keep `?via=booth` (or the token) when the visitor moves on.
 - It is a soft gate: prices still reach the browser through the public proxy.
+- Reusing a printed QR at another fair: the QR printed for Frieze London
+  2026 points to `/jessica-frieze?via=booth`. `redirects` in `vercel.json`
+  sends only those booth scans to the current fair's room (temporary 307,
+  so phones never cache it); email links to the Frieze room are untouched.
+  For the next fair, change `destination` to that fair's room slug.
 
 ## Environment variables (Vercel)
 
