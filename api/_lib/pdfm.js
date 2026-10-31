@@ -165,7 +165,7 @@ function buildPdfMobile({ room, participants, items, imgs, pagesFor, introParas 
     imagePage();
     noBreak(() => {
       doc.font("Replica-Bold").fontSize(15).fillColor(INK)
-        .text("All prices exclude 9% VAT and exclude shipping", PM.m, 50, { width: CAP_W })
+        .text("All prices exclude VAT and exclude shipping", PM.m, 50, { width: CAP_W })
         .text("Works subject to availability", PM.m, doc.y + 2, { width: CAP_W });
       const LINK = "#4F52D9";
       doc.font("Replica").fontSize(15);

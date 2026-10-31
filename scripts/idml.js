@@ -261,7 +261,7 @@ async function buildIdml(model, name) {
   if (!titleDone) titlePage();
   if (introParas.length) page([textFrame(P.m, 40, 405, P.h - 80, introParas.map((t) => ["Body", t]))]);
   page([
-    textFrame(P.m, 40, 600, 60, [["Closing", "All prices exclude 9% VAT and exclude shipping"], ["Closing", "Works subject to availability"]]),
+    textFrame(P.m, 40, 600, 60, [["Closing", "All prices exclude VAT and exclude shipping"], ["Closing", "Works subject to availability"]]),
     textFrame(P.m, 190, 600, 120, [["Closing link", "diego@diez.gallery"], ["Closing contact", "+31 6 33261845"], ["Closing contact", ""], ["Closing link", "@diez.gallery"], ["Closing link", "www.diez.gallery"]]),
     logoAt(P.m, P.h - 80, 94),
   ]);

@@ -281,7 +281,7 @@ function buildPdf2({ room, participants, items, imageFor, wallFor, introParas })
     function closingPage() {
       newPage();
       doc.font("Replica-Bold").fontSize(15).fillColor(INK)
-        .text("All prices exclude 9% VAT and exclude shipping", P.m, 40, { width: 600 })
+        .text("All prices exclude VAT and exclude shipping", P.m, 40, { width: 600 })
         .text("Works subject to availability", P.m, doc.y + 1, { width: 600 });
       const LINK = "#4F52D9";
       doc.font("Replica").fontSize(15);
