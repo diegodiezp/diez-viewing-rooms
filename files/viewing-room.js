@@ -2080,7 +2080,7 @@ function App() {
         // field); without it, the PDF is generated live by /:slug/pdf2.
         pdfUrl: /^https:\/\//.test(vr['PDF'] || '') ? vr['PDF'] : '',
         dates: formatDates(vr['Start Date'], vr['End Date']),
-        booth: '',
+        booth: (vr['Booth'] || '').trim(),
         intro: vr['Introduction'] || '',
         files: attachments.map((att, i) => ({
           url: '/api/attachment?id=' + vrRecordId + '&index=' + i,

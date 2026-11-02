@@ -1246,7 +1246,7 @@ function App() {
         // Full-quality PDF built on GitHub Actions (R2 link in Airtable's "PDF"
         // field); without it, the PDF is generated live by /:slug/pdf2.
         pdfUrl: /^https:\/\//.test(vr['PDF'] || '') ? vr['PDF'] : '',
-        dates: formatDates(vr['Start Date'], vr['End Date']), booth: '', intro: vr['Introduction'] || '',
+        dates: formatDates(vr['Start Date'], vr['End Date']), booth: (vr['Booth'] || '').trim(), intro: vr['Introduction'] || '',
         files: attachments.map((att, i) => ({
           url: '/api/attachment?id=' + vrRecordId + '&index=' + i,
           filename: att.filename || 'Document',
