@@ -681,9 +681,56 @@ function RelatedRooms({ items, isMobile }) {
   );
 }
 
+// ── ARTIST HEADING (rooms with "Group by artist") ─────────────────────────────
+const artistAnchor = (name) => 'artist-' + String(name || '').toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+function ArtistHeading({ name, count, anchor, first }) {
+  const { isMobile } = useViewport();
+  return (
+    <div id={anchor ? artistAnchor(name) : undefined}
+      style={{ paddingTop: first ? (isMobile ? 8 : 16) : (isMobile ? 56 : 88),
+        paddingBottom: isMobile ? 4 : 8, borderBottom:'1px solid #000000',
+        display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:16,
+        scrollMarginTop: 24 }}>
+      <h2 style={{ fontFamily:"'Replica', sans-serif", fontSize: isMobile ? 22 : 28,
+        fontWeight:400, lineHeight:1.15, margin:0 }}>{name}</h2>
+      {count > 0 && (
+        <span className="subtitle-gray" style={{ marginBottom:0, whiteSpace:'nowrap' }}>
+          {count} {count === 1 ? 'work' : 'works'}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// Work rows for a list of indexes into works[]. With grouping on, an artist
+// heading goes in wherever the artist changes (the first time an artist
+// appears it also becomes the jump target for the header links).
+function WorkRows({ works, idxs, grouped, onSelect, keySuffix = '', seen }) {
+  const counts = {};
+  if (grouped) idxs.forEach(wi => { const a = works[wi].artist; counts[a] = (counts[a] || 0) + 1; });
+  let prev = null;
+  return idxs.map((wi, i) => {
+    const w = works[wi];
+    const heading = grouped && w.artist && w.artist !== prev;
+    prev = w.artist;
+    let anchor = false;
+    if (heading && seen && !seen.has(w.artist)) { seen.add(w.artist); anchor = true; }
+    return (
+      <React.Fragment key={w.id + keySuffix}>
+        {heading && <ArtistHeading name={w.artist} count={counts[w.artist]} anchor={anchor} first={i === 0} />}
+        <WorkRow work={w} index={i} onSelect={() => onSelect(wi)} hideArtist={grouped} />
+      </React.Fragment>
+    );
+  });
+}
+
 function Landing({ room, works, onSelect }) {
   const { isMobile } = useViewport();
   const { locked, openGate } = React.useContext(GateContext);
+  // Tracks which artists already have their jump-target heading (rendered fresh each pass).
+  const seenArtists = new Set();
 
   return (
     <div style={{ minHeight:'100vh', background:'#FFFFFF' }}>
@@ -741,6 +788,18 @@ function Landing({ room, works, onSelect }) {
                 ↓ Installation Views
               </a>
             )}
+            {room.groupByArtist && room.artists?.length > 1 && room.artists.map(name => (
+              <a key={name} href={'#' + artistAnchor(name)}
+                onClick={e => { e.preventDefault(); document.getElementById(artistAnchor(name))?.scrollIntoView({ behavior:'smooth' }); }}
+                style={{ display:'inline-block', fontSize:12,
+                  letterSpacing:'0.08em', textTransform:'uppercase', color:'#000000',
+                  textDecoration:'none', transition:'color 0.15s', fontWeight:400,
+                  borderBottom:'1px solid #000000', paddingBottom:1, width:'fit-content' }}
+                onMouseEnter={e => { e.target.style.color='#666666'; e.target.style.borderBottomColor='#666666'; }}
+                onMouseLeave={e => { e.target.style.color='#000000'; e.target.style.borderBottomColor='#000000'; }}>
+                ↓ {name}
+              </a>
+            ))}
           </div>
         )}
       </header>
@@ -754,9 +813,8 @@ function Landing({ room, works, onSelect }) {
               <SectionViews images={sec.views} isMobile={isMobile} sectionNo={sec.no} />
               {sec.workIdxs.length > 0 && (
                 <main style={{ maxWidth:1200, margin:'0', padding: isMobile ? '0 20px 24px' : '0 48px 32px' }}>
-                  {sec.workIdxs.map((wi, i) => (
-                    <WorkRow key={works[wi].id + '-' + sec.no} work={works[wi]} index={i} onSelect={() => onSelect(wi)} />
-                  ))}
+                  <WorkRows works={works} idxs={sec.workIdxs} grouped={room.groupByArtist}
+                    onSelect={onSelect} keySuffix={'-' + sec.no} seen={seenArtists} />
                 </main>
               )}
             </React.Fragment>
@@ -765,9 +823,8 @@ function Landing({ room, works, onSelect }) {
       ) : (
         <>
           <main style={{ maxWidth:1200, margin:'0', padding: isMobile ? '0 20px 80px' : '0 48px 80px' }}>
-            {works.map((work, i) => (
-              <WorkRow key={work.id} work={work} index={i} onSelect={() => onSelect(i)} />
-            ))}
+            <WorkRows works={works} idxs={works.map((_, i) => i)} grouped={room.groupByArtist}
+              onSelect={onSelect} seen={seenArtists} />
           </main>
           {room.installViews?.length > 0 && (
             <InstallationViews images={room.installViews} isMobile={isMobile} />
@@ -792,7 +849,7 @@ function Landing({ room, works, onSelect }) {
 }
 
 // ── WORK ROW (landing) ────────────────────────────────────────────────────────
-function WorkRow({ work, index, onSelect }) {
+function WorkRow({ work, index, onSelect, hideArtist }) {
   const [hov, setHov] = useState(false);
   const { isMobile } = useViewport();
   const { locked } = React.useContext(GateContext);
@@ -831,7 +888,7 @@ function WorkRow({ work, index, onSelect }) {
         )}
       </div>
       <div style={{ display:'flex', flexDirection:'column', justifyContent:'center', paddingTop:4 }}>
-        <div className="artist-name">{work.artist}</div>
+        {!hideArtist && <div className="artist-name">{work.artist}</div>}
         <h2 className="work-title">{work.title}</h2>
         {work.year && <div className="year-value" style={{ marginTop:14 }}>{work.year}</div>}
         {work.info && <div className="details-value" style={{ marginTop:3 }}>{work.info}</div>}
@@ -1208,6 +1265,10 @@ function App() {
           .map(c => { const i = c.indexOf('|'); return { slug: c.slice(0, i), name: c.slice(i + 1) }; })
           .filter(r => r.slug && r.name && r.slug !== slug),
         sections: [], // filled below, once the artworks are loaded and ordered
+        // "Group by artist" (checkbox): fair rooms with several artists show
+        // each artist's works as their own block under the artist's name.
+        groupByArtist: !!vr['Group by artist'],
+        artists: [],
       });
 
       const awFormula = 'OR(' + artworkIds.map(id => `RECORD_ID()="${id}"`).join(',') + ')';
@@ -1257,6 +1318,22 @@ function App() {
           status, available, price,
         };
       });
+
+      // Group by artist: in flat rooms, works are pulled together per artist,
+      // artists in order of first appearance, works keeping the room's drag
+      // order inside each block. The detail view's prev/next then runs
+      // artist by artist too. Sectioned rooms keep their own order: the
+      // artist heading is inserted wherever the artist changes.
+      const groupByArtist = !!vr['Group by artist'];
+      if (groupByArtist && !sectioned) {
+        const firstSeen = new Map();
+        mapped.forEach((w, i) => { if (!firstSeen.has(w.artist)) firstSeen.set(w.artist, i); });
+        mapped.sort((a, b) => firstSeen.get(a.artist) - firstSeen.get(b.artist));
+      }
+      if (groupByArtist) {
+        const artists = [...new Set(mapped.map(w => w.artist).filter(Boolean))];
+        setRoom(r => ({ ...r, artists }));
+      }
 
       document.title = (vr['Name'] || 'Viewing Room') + ' — Diez Gallery';
       if (sectioned) {

@@ -1046,6 +1046,88 @@ function RelatedRooms({
     }
   }), r.name, " \u2192"))));
 }
+
+// ── ARTIST HEADING (rooms with "Group by artist") ─────────────────────────────
+const artistAnchor = name => 'artist-' + String(name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+function ArtistHeading({
+  name,
+  count,
+  anchor,
+  first
+}) {
+  const {
+    isMobile
+  } = useViewport();
+  return /*#__PURE__*/React.createElement("div", {
+    id: anchor ? artistAnchor(name) : undefined,
+    style: {
+      paddingTop: first ? isMobile ? 8 : 16 : isMobile ? 56 : 88,
+      paddingBottom: isMobile ? 4 : 8,
+      borderBottom: '1px solid #000000',
+      display: 'flex',
+      alignItems: 'baseline',
+      justifyContent: 'space-between',
+      gap: 16,
+      scrollMarginTop: 24
+    }
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontFamily: "'Replica', sans-serif",
+      fontSize: isMobile ? 22 : 28,
+      fontWeight: 400,
+      lineHeight: 1.15,
+      margin: 0
+    }
+  }, name), count > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "subtitle-gray",
+    style: {
+      marginBottom: 0,
+      whiteSpace: 'nowrap'
+    }
+  }, count, " ", count === 1 ? 'work' : 'works'));
+}
+
+// Work rows for a list of indexes into works[]. With grouping on, an artist
+// heading goes in wherever the artist changes (the first time an artist
+// appears it also becomes the jump target for the header links).
+function WorkRows({
+  works,
+  idxs,
+  grouped,
+  onSelect,
+  keySuffix = '',
+  seen
+}) {
+  const counts = {};
+  if (grouped) idxs.forEach(wi => {
+    const a = works[wi].artist;
+    counts[a] = (counts[a] || 0) + 1;
+  });
+  let prev = null;
+  return idxs.map((wi, i) => {
+    const w = works[wi];
+    const heading = grouped && w.artist && w.artist !== prev;
+    prev = w.artist;
+    let anchor = false;
+    if (heading && seen && !seen.has(w.artist)) {
+      seen.add(w.artist);
+      anchor = true;
+    }
+    return /*#__PURE__*/React.createElement(React.Fragment, {
+      key: w.id + keySuffix
+    }, heading && /*#__PURE__*/React.createElement(ArtistHeading, {
+      name: w.artist,
+      count: counts[w.artist],
+      anchor: anchor,
+      first: i === 0
+    }), /*#__PURE__*/React.createElement(WorkRow, {
+      work: w,
+      index: i,
+      onSelect: () => onSelect(wi),
+      hideArtist: grouped
+    }));
+  });
+}
 function Landing({
   room,
   works,
@@ -1058,6 +1140,8 @@ function Landing({
     locked,
     openGate
   } = React.useContext(GateContext);
+  // Tracks which artists already have their jump-target heading (rendered fresh each pass).
+  const seenArtists = new Set();
   return /*#__PURE__*/React.createElement("div", {
     style: {
       minHeight: '100vh',
@@ -1177,7 +1261,37 @@ function Landing({
       e.target.style.color = '#000000';
       e.target.style.borderBottomColor = '#000000';
     }
-  }, "\u2193 Installation Views"))), room.sections?.length > 0 ?
+  }, "\u2193 Installation Views"), room.groupByArtist && room.artists?.length > 1 && room.artists.map(name => /*#__PURE__*/React.createElement("a", {
+    key: name,
+    href: '#' + artistAnchor(name),
+    onClick: e => {
+      e.preventDefault();
+      document.getElementById(artistAnchor(name))?.scrollIntoView({
+        behavior: 'smooth'
+      });
+    },
+    style: {
+      display: 'inline-block',
+      fontSize: 12,
+      letterSpacing: '0.08em',
+      textTransform: 'uppercase',
+      color: '#000000',
+      textDecoration: 'none',
+      transition: 'color 0.15s',
+      fontWeight: 400,
+      borderBottom: '1px solid #000000',
+      paddingBottom: 1,
+      width: 'fit-content'
+    },
+    onMouseEnter: e => {
+      e.target.style.color = '#666666';
+      e.target.style.borderBottomColor = '#666666';
+    },
+    onMouseLeave: e => {
+      e.target.style.color = '#000000';
+      e.target.style.borderBottomColor = '#000000';
+    }
+  }, "\u2193 ", name)))), room.sections?.length > 0 ?
   /*#__PURE__*/
   // Sectioned room: views 1, works 1, views 2, works 2, views 3, works 3.
   // Empty blocks are skipped. works[] stays one flat list so the detail
@@ -1198,23 +1312,26 @@ function Landing({
       margin: '0',
       padding: isMobile ? '0 20px 24px' : '0 48px 32px'
     }
-  }, sec.workIdxs.map((wi, i) => /*#__PURE__*/React.createElement(WorkRow, {
-    key: works[wi].id + '-' + sec.no,
-    work: works[wi],
-    index: i,
-    onSelect: () => onSelect(wi)
-  })))))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("main", {
+  }, /*#__PURE__*/React.createElement(WorkRows, {
+    works: works,
+    idxs: sec.workIdxs,
+    grouped: room.groupByArtist,
+    onSelect: onSelect,
+    keySuffix: '-' + sec.no,
+    seen: seenArtists
+  }))))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("main", {
     style: {
       maxWidth: 1200,
       margin: '0',
       padding: isMobile ? '0 20px 80px' : '0 48px 80px'
     }
-  }, works.map((work, i) => /*#__PURE__*/React.createElement(WorkRow, {
-    key: work.id,
-    work: work,
-    index: i,
-    onSelect: () => onSelect(i)
-  }))), room.installViews?.length > 0 && /*#__PURE__*/React.createElement(InstallationViews, {
+  }, /*#__PURE__*/React.createElement(WorkRows, {
+    works: works,
+    idxs: works.map((_, i) => i),
+    grouped: room.groupByArtist,
+    onSelect: onSelect,
+    seen: seenArtists
+  })), room.installViews?.length > 0 && /*#__PURE__*/React.createElement(InstallationViews, {
     images: room.installViews,
     isMobile: isMobile
   })), /*#__PURE__*/React.createElement(RelatedRooms, {
@@ -1266,7 +1383,8 @@ function Landing({
 function WorkRow({
   work,
   index,
-  onSelect
+  onSelect,
+  hideArtist
 }) {
   const [hov, setHov] = useState(false);
   const {
@@ -1343,7 +1461,7 @@ function WorkRow({
       justifyContent: 'center',
       paddingTop: 4
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, !hideArtist && /*#__PURE__*/React.createElement("div", {
     className: "artist-name"
   }, work.artist), /*#__PURE__*/React.createElement("h2", {
     className: "work-title"
@@ -1982,7 +2100,12 @@ function App() {
             name: c.slice(i + 1)
           };
         }).filter(r => r.slug && r.name && r.slug !== slug),
-        sections: [] // filled below, once the artworks are loaded and ordered
+        sections: [],
+        // filled below, once the artworks are loaded and ordered
+        // "Group by artist" (checkbox): fair rooms with several artists show
+        // each artist's works as their own block under the artist's name.
+        groupByArtist: !!vr['Group by artist'],
+        artists: []
       });
       const awFormula = 'OR(' + artworkIds.map(id => `RECORD_ID()="${id}"`).join(',') + ')';
       const awData = await atFetch(TBL_ARTWORKS, {
@@ -2041,6 +2164,27 @@ function App() {
           price
         };
       });
+
+      // Group by artist: in flat rooms, works are pulled together per artist,
+      // artists in order of first appearance, works keeping the room's drag
+      // order inside each block. The detail view's prev/next then runs
+      // artist by artist too. Sectioned rooms keep their own order: the
+      // artist heading is inserted wherever the artist changes.
+      const groupByArtist = !!vr['Group by artist'];
+      if (groupByArtist && !sectioned) {
+        const firstSeen = new Map();
+        mapped.forEach((w, i) => {
+          if (!firstSeen.has(w.artist)) firstSeen.set(w.artist, i);
+        });
+        mapped.sort((a, b) => firstSeen.get(a.artist) - firstSeen.get(b.artist));
+      }
+      if (groupByArtist) {
+        const artists = [...new Set(mapped.map(w => w.artist).filter(Boolean))];
+        setRoom(r => ({
+          ...r,
+          artists
+        }));
+      }
       document.title = (vr['Name'] || 'Viewing Room') + ' — Diez Gallery';
       if (sectioned) {
         // Map each section's linked works to their index in the flat list.
