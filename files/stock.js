@@ -490,7 +490,17 @@
   };
 
   // ---------- login ----------
+  // The login screen is drawn once and then left alone. Several things call
+  // renderLogin (boot, coming back to the app, the outbox, the online event)
+  // and redrawing it wiped what was being typed: in the home-screen app,
+  // fetching the password from the keychain or another app hides the page,
+  // and coming back triggered a reload that cleared the field.
+  function loginShown() { return !!document.getElementById("login-form"); }
   function renderLogin(message) {
+    if (loginShown()) {
+      if (message) document.querySelector("#login-form .error").textContent = message;
+      return;
+    }
     app.innerHTML =
       '<main class="login"><form id="login-form">' +
       '<img src="/files/logo.png" alt="diez">' +
@@ -511,7 +521,12 @@
           offline.forget();
           renderShell(); load(true);
         })
-        .catch(function (err) { renderLogin(err.auth ? "Wrong password" : err.message); });
+        .catch(function (err) {
+          btn.disabled = false;
+          var pw = document.getElementById("pw");
+          if (err.auth && pw) { pw.value = ""; pw.focus(); }
+          renderLogin(err.auth ? "Wrong password" : err.message);
+        });
     });
   }
 
@@ -1846,6 +1861,7 @@
   document.addEventListener("visibilitychange", function () {
     // Back to the app after a while: pick up changes made elsewhere
     if (document.visibilityState === "visible") {
+      if (loginShown()) return;
       flush();
       if (age() > FRESH_MS) load(false); else renderBody();
     }
