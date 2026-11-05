@@ -68,7 +68,11 @@ const LOGO_LINK = STOCK_PHONE ? {
 // visitor is anonymous and nothing will be logged. Reassigned when the booth
 // gate is unlocked (see App.unlockGate).
 let TRACKING_TOKEN = STOCK_PHONE ? null : URL_PARAMS.get('t') || (VIA_BOOTH ? readStore(LEAD_TOKEN_KEY) : null);
-const BOOTH_LOCKED_AT_START = VIA_BOOTH && !STOCK_PHONE && !TRACKING_TOKEN && readStore(LEAD_UNLOCKED_KEY) !== '1';
+// Email gate on/off for every booth QR. Off since Art Cologne 2026 (5 Nov),
+// at the artist's request: QR visitors see prices and the PDF straight away.
+// Set to true to ask for an email again at a future fair.
+const BOOTH_GATE = false;
+const BOOTH_LOCKED_AT_START = BOOTH_GATE && VIA_BOOTH && !STOCK_PHONE && !TRACKING_TOKEN && readStore(LEAD_UNLOCKED_KEY) !== '1';
 
 // Shared by the price blocks, the PDF link and the gate itself.
 const GateContext = React.createContext({
