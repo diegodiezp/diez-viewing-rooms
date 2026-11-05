@@ -307,6 +307,154 @@ function PriceGate({ small }) {
   );
 }
 
+// ── SEND BY EMAIL (gallery phones only) ──────────────────────────────────────
+// At a fair, Diego or the assistant types a visitor's email on their own
+// phone and the room is emailed to them, exactly as the booth gate did
+// (same diez-mail /api/ev/lead: the contact is stored as "Booth QR" and the
+// room goes out by email). Only shown on phones signed in to the stock tool.
+// The token diez-mail answers with belongs to the visitor, so it is never
+// kept on this phone. Without a connection the email waits in localStorage
+// and is sent when the phone is back online.
+const SEND_OUTBOX_KEY = 'diez-room-send-outbox-v1';
+function readSendOutbox() { try { return JSON.parse(readStore(SEND_OUTBOX_KEY) || '[]') || []; } catch (e) { return []; } }
+function writeSendOutbox(list) { writeStore(SEND_OUTBOX_KEY, JSON.stringify(list)); }
+
+// Resolves 'sent' | 'invalid' (with message) | 'offline'
+async function postLead(item) {
+  if (navigator.onLine === false) return { result: 'offline' };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const res = await fetch(LEAD_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: item.email, name: item.name, slug: item.slug, room: item.room, website: '' }),
+      signal: ctrl.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 400) return { result: 'invalid', message: data.error || 'Check the email address.' };
+    if (!res.ok) return { result: 'offline' };
+    return { result: 'sent' };
+  } catch (e) {
+    return { result: 'offline' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+let sendFlushing = false;
+async function flushSendOutbox(onChange) {
+  if (sendFlushing) return;
+  sendFlushing = true;
+  try {
+    let list = readSendOutbox();
+    while (list.length) {
+      const r = await postLead(list[0]);
+      if (r.result === 'offline') break;
+      list = readSendOutbox().slice(1);
+      writeSendOutbox(list);
+      onChange && onChange(list, r.result === 'sent' ? list[0] : null);
+    }
+  } finally {
+    sendFlushing = false;
+    onChange && onChange(readSendOutbox());
+  }
+}
+
+function SendToVisitor({ room }) {
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [error, setError] = useState('');
+  const [waiting, setWaiting] = useState(readSendOutbox().length);
+  const emailRef = useRef(null);
+
+  useEffect(() => {
+    const refresh = () => flushSendOutbox(list => setWaiting(list.length));
+    refresh();
+    window.addEventListener('online', refresh);
+    const iv = setInterval(() => { if (readSendOutbox().length) refresh(); }, 30000);
+    return () => { window.removeEventListener('online', refresh); clearInterval(iv); };
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => emailRef.current && emailRef.current.focus(), 150);
+    return () => clearTimeout(t);
+  }, [open]);
+
+  async function submit(e) {
+    e.preventDefault();
+    if (busy) return;
+    const value = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)) { setError('Check the email address.'); return; }
+    setBusy(true); setError(''); setMsg('');
+    const item = { email: value, name: name.trim(), slug: room.slug, room: room.title, at: Date.now() };
+    const r = await postLead(item);
+    setBusy(false);
+    if (r.result === 'invalid') { setError(r.message); return; }
+    if (r.result === 'offline') {
+      const list = readSendOutbox().concat([item]);
+      writeSendOutbox(list); setWaiting(list.length);
+      setMsg('No connection. Saved on this phone, it will be sent to ' + value + ' as soon as there is a connection.');
+    } else {
+      setMsg('Sent to ' + value + '.');
+    }
+    // Ready for the next visitor
+    setEmail(''); setName('');
+    emailRef.current && emailRef.current.focus();
+  }
+
+  const label = { display:'block', fontSize:10, letterSpacing:'0.12em', textTransform:'uppercase', color:'#666666', marginBottom:6 };
+  const input = { width:'100%', fontFamily:"'Replica', sans-serif", fontSize:16, color:'#000000', background:'#FFFFFF',
+    border:'none', borderBottom:'1px solid #000000', borderRadius:0, padding:'8px 0', outline:'none', WebkitAppearance:'none' };
+
+  return (
+    <>
+      {!open && (
+        <button type="button" onClick={() => { setOpen(true); setMsg(''); setError(''); }}
+          style={{ position:'fixed', right:16, bottom:'calc(16px + env(safe-area-inset-bottom, 0px))', zIndex:900,
+            fontFamily:"'Replica', sans-serif", fontSize:12, letterSpacing:'0.08em', textTransform:'uppercase',
+            background:'#000000', color:'#FFFFFF', border:'none', borderRadius:999, padding:'12px 18px', cursor:'pointer',
+            boxShadow:'0 2px 10px rgba(0,0,0,0.15)' }}>
+          Send by email{waiting ? ' · ' + waiting + ' waiting' : ''}
+        </button>
+      )}
+      {open && (
+        <div role="dialog" aria-modal="true" aria-label="Send this room by email" onClick={() => setOpen(false)}
+          style={{ position:'fixed', inset:0, zIndex:1000, background:'rgba(255,255,255,0.88)',
+            display:'flex', alignItems:'flex-end', justifyContent:'center', animation:'fadeIn 0.2s both' }}>
+          <form onSubmit={submit} onClick={e => e.stopPropagation()} noValidate
+            style={{ width:'100%', maxWidth:480, background:'#FFFFFF', border:'1px solid #000000', borderBottom:'none',
+              padding:'28px 20px calc(32px + env(safe-area-inset-bottom, 0px))', position:'relative',
+              animation:'fadeUp 0.3s both cubic-bezier(0.22,0.68,0,1)' }}>
+            <button type="button" onClick={() => setOpen(false)} aria-label="Close"
+              style={{ position:'absolute', top:14, right:16, background:'none', border:'none', cursor:'pointer',
+                fontSize:20, lineHeight:1, color:'#666666', padding:4 }}>×</button>
+            <div className="subtitle-gray" style={{ marginBottom:10 }}>{room.title}</div>
+            <h2 style={{ fontFamily:"'Replica', sans-serif", fontWeight:400, fontSize:22, lineHeight:1.2, marginBottom:20 }}>
+              Send this room by email</h2>
+            <label style={label} htmlFor="send-email">Email</label>
+            <input id="send-email" ref={emailRef} type="email" inputMode="email" autoComplete="off" autoCapitalize="none"
+              spellCheck={false} value={email} onChange={e => setEmail(e.target.value)} style={{ ...input, marginBottom:18 }}/>
+            <label style={label} htmlFor="send-name">Name (optional)</label>
+            <input id="send-name" type="text" autoComplete="off" value={name} onChange={e => setName(e.target.value)}
+              style={{ ...input, marginBottom:22 }}/>
+            {error && <p role="alert" style={{ color:'#D0101B', fontSize:13, marginBottom:12 }}>{error}</p>}
+            {msg && <p role="status" style={{ fontSize:13, marginBottom:12 }}>{msg}</p>}
+            {waiting > 0 && <p style={{ fontSize:12, color:'#666666', marginBottom:12 }}>
+              {waiting === 1 ? '1 email' : waiting + ' emails'} saved on this phone, waiting for a connection.</p>}
+            <button type="submit" disabled={busy}
+              style={{ width:'100%', fontFamily:"'Replica', sans-serif", fontSize:12, letterSpacing:'0.12em',
+                textTransform:'uppercase', background:'#000000', color:'#FFFFFF', border:'none', padding:'14px 0',
+                cursor:'pointer', opacity: busy ? 0.5 : 1 }}>{busy ? 'Sending' : 'Send'}</button>
+          </form>
+        </div>
+      )}
+    </>
+  );
+}
+
 function LeadGate({ room, onClose, onUnlocked }) {
   const { isMobile } = useViewport();
   const [email, setEmail] = useState('');
@@ -1503,6 +1651,7 @@ function App() {
       {gateOpen && locked && (
         <LeadGate room={room} onClose={() => setGateOpen(false)} onUnlocked={unlockGate}/>
       )}
+      {STOCK_PHONE && room && room.slug && <SendToVisitor room={room}/>}
     </GateContext.Provider>
   );
 }
