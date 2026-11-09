@@ -994,7 +994,7 @@ function Landing({ room, works, onSelect }) {
         <a href="tel:+31633261845" style={{ color:'#333333', textDecoration:'none' }}>+31 633261845</a>
         <a href="https://instagram.com/diez.gallery" target="_blank" rel="noopener noreferrer"
           style={{ color:'#333333', textDecoration:'none' }}>Instagram</a>
-        <span>Open Fri - Sun from 12-5pm or by appointment</span>
+        <span>Open Fri 1-6pm, Sat - Sun 12-5pm or by appointment</span>
       </footer>
     </div>
   );
@@ -1098,12 +1098,19 @@ function DetailSplit({ works, workIdx, onBack, onPrev, onNext, onJump }) {
     return () => clearTimeout(t);
   }, [workIdx]);
 
-  // ESC key disables zoom mode
+  // ESC key disables zoom mode, and only that. The listener runs in the
+  // capture phase and stops the event there, so App's own Escape handler
+  // (history.back(), i.e. "All works") never sees it: before, one press both
+  // left zoom and threw the visitor back to the list.
   useEffect(() => {
     if (!zoomActive) return;
-    const onKey = (e) => { if (e.key === 'Escape') setZoomActive(false); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      setZoomActive(false);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [zoomActive]);
 
   // Reset to main image when changing artwork

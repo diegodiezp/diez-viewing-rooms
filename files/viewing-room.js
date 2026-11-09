@@ -1695,7 +1695,7 @@ function Landing({
       color: '#333333',
       textDecoration: 'none'
     }
-  }, "Instagram"), /*#__PURE__*/React.createElement("span", null, "Open Fri - Sun from 12-5pm or by appointment")));
+  }, "Instagram"), /*#__PURE__*/React.createElement("span", null, "Open Fri 1-6pm, Sat - Sun 12-5pm or by appointment")));
 }
 
 // ── WORK ROW (landing) ────────────────────────────────────────────────────────
@@ -1876,14 +1876,19 @@ function DetailSplit({
     return () => clearTimeout(t);
   }, [workIdx]);
 
-  // ESC key disables zoom mode
+  // ESC key disables zoom mode, and only that. The listener runs in the
+  // capture phase and stops the event there, so App's own Escape handler
+  // (history.back(), i.e. "All works") never sees it: before, one press both
+  // left zoom and threw the visitor back to the list.
   useEffect(() => {
     if (!zoomActive) return;
     const onKey = e => {
-      if (e.key === 'Escape') setZoomActive(false);
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      setZoomActive(false);
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [zoomActive]);
 
   // Reset to main image when changing artwork
