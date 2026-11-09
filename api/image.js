@@ -1,5 +1,6 @@
 const { applyCors } = require("./_lib/cors");
 const stockImage = require("./_lib/stockimg");
+const { isRecordId } = require("./_lib/stock");
 
 const BASE_ID = "appkTmFvjmDLOQS4p";
 const TABLE_ID = "tblK8xDtKmakHWt6k";
@@ -23,6 +24,10 @@ module.exports = async function handler(req, res) {
   // size: small (36px) | large (512px) | full (3000px) | original. Default: large.
   const size = (req.query.size || "large").toLowerCase();
   if (!recordId) return res.status(400).json({ error: "Missing 'id' parameter" });
+  // The id goes straight into the Airtable URL below. Anything but a plain
+  // record ID is refused: "../tblOther/recXXX" would otherwise be resolved
+  // by fetch() and read a record from another table (or another base).
+  if (!isRecordId(recordId)) return res.status(400).json({ error: "Invalid 'id' parameter" });
 
   if (!ALLOWED_FIELDS.includes(field)) {
     return res.status(403).json({ error: "Access denied" });

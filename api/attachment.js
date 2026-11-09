@@ -1,4 +1,5 @@
 const { applyCors } = require("./_lib/cors");
+const { isRecordId } = require("./_lib/stock");
 
 const BASE_ID = "appkTmFvjmDLOQS4p";
 const TABLE_ID = "tbl8EUvqiOLudNvjv";
@@ -18,6 +19,11 @@ module.exports = async function handler(req, res) {
 
   const recordId = req.query.id;
   if (!recordId) return res.status(400).json({ error: "Missing 'id' parameter" });
+  // The id goes straight into the Airtable URL below. Anything but a plain
+  // record ID is refused: "../tblOther/recXXX" would otherwise be resolved
+  // by fetch() and serve the "Attachments" field of another table (the
+  // Invoices tables have one) to anyone holding that record's ID.
+  if (!isRecordId(recordId)) return res.status(400).json({ error: "Invalid 'id' parameter" });
 
   const fieldName = req.query.field || "Attachments";
   if (!ALLOWED_FIELDS.includes(fieldName)) {

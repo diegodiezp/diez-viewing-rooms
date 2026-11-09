@@ -39,6 +39,25 @@ const ALLOWED_FORMULAS = [
   /^OR\(RECORD_ID\(\)="rec[a-zA-Z0-9]+"(,RECORD_ID\(\)="rec[a-zA-Z0-9]+")*\)$/,
 ];
 
+// A work's price only leaves Airtable while the room shows it: Status
+// Available, On hold or empty (the same rule as the frontend and the PDFs).
+// For Sold, Consigned, Not available or any other status the price is
+// removed here, so it is not in the JSON for anyone who opens the browser's
+// developer tools. Airtable's "Not available " has a trailing space: trim.
+const TBL_ARTWORKS = "tblK8xDtKmakHWt6k";
+const PRICE_FIELDS = ["Price €"];
+const PRICED_STATUSES = ["", "Available", "On hold"];
+
+function hidePrices(records) {
+  for (const rec of records || []) {
+    const f = rec && rec.fields;
+    if (!f) continue;
+    const status = String(f["Status"] || "").trim();
+    if (PRICED_STATUSES.includes(status)) continue;
+    for (const p of PRICE_FIELDS) delete f[p];
+  }
+}
+
 module.exports = async function handler(req, res) {
   applyCors(req, res);
 
@@ -87,6 +106,8 @@ module.exports = async function handler(req, res) {
     });
     const data = await atRes.json();
     if (!atRes.ok) return res.status(atRes.status).json(data);
+
+    if (path === TBL_ARTWORKS) hidePrices(data.records);
 
     // CDN caching: 2 min fresh on Vercel's edge, then up to 10 min serving
     // stale while revalidating in background. Absorbs traffic spikes after a
