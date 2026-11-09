@@ -94,13 +94,31 @@ module.exports = async function handler(req, res) {
               "$1summary_large_image$2"
             );
           } else {
+            // Room preview image. WhatsApp asks for preview images under
+            // 600 KB and the originals in Airtable weigh 1-5 MB, so link the
+            // 1600px version served by /api/image (api/_lib/stockimg.js,
+            // ~150-300 KB) instead of the original file.
             // Single rooms use "Installation Views"; sectioned rooms may only
-            // have "Installation Views 1/2/3", so take the first one that has
-            // an image.
-            const ogField = ["Installation Views", "Installation Views 1", "Installation Views 2", "Installation Views 3"]
-              .find((k) => (f[k] || []).length > 0);
-            if (ogField) {
-              const imgUrl = origin + "/api/attachment?id=" + rec.id + "&field=" + encodeURIComponent(ogField) + "&index=0";
+            // have "Installation Views 1/2/3", so take the first image found.
+            let imgUrl = null;
+            for (const k of ["Installation Views", "Installation Views 1", "Installation Views 2", "Installation Views 3"]) {
+              const att = (f[k] || []).find(
+                (a) => a && /^att[A-Za-z0-9]{14}$/.test(a.id || "") && (!a.type || a.type.indexOf("image/") === 0)
+              );
+              if (att) {
+                imgUrl = origin + "/api/image?t=v&r=" + rec.id + "&a=" + att.id + "&s=l";
+                break;
+              }
+            }
+            // A room without installation views (fair rooms often have none)
+            // previews its first artwork, rather than no image at all.
+            if (!imgUrl) {
+              const firstWork = ["Artworks", "Artworks 1", "Artworks 2", "Artworks 3"]
+                .map((k) => (f[k] || [])[0])
+                .find((id) => /^rec[A-Za-z0-9]{14}$/.test(id || ""));
+              if (firstWork) imgUrl = origin + "/api/image?id=" + firstWork + "&size=large";
+            }
+            if (imgUrl) {
               extraTags +=
                 '<meta property="og:image" content="' + escapeHtml(imgUrl) + '">' +
                 '<meta name="twitter:image" content="' + escapeHtml(imgUrl) + '">';
