@@ -14,7 +14,6 @@ function render(){
   const list=works.filter(w=>filter==='all'||(filter==='av'&&w.st==='av')||(filter==='fav'&&fav.has(w.id)));
   wall.classList.toggle('wallmode',mode==='wall');
   wall.innerHTML=list.length?list.map(w=>`<button class="cell${w.st!=='av'?' gone':''}" data-i="${w.n-1}" aria-label="${title(w)}, ${label[w.st]}"><div class="frame"><img loading="lazy" src="/msa/img/${mode==='wall'?'r':'t'}${w.img}.jpg" alt="">${fav.has(w.id)?'<span class="fav" aria-hidden="true">♥</span>':''}</div><div class="cap"><span class="n">${w.id}</span>${w.st==='sold'?'<span class="dot"></span>':w.st==='hold'?'<span class="dot hold"></span>':''}</div></button>`).join(''):`<p class="empty">${filter==='fav'?'Your shortlist is empty. Open a painting and add it to the shortlist.':'Nothing to show.'}</p>`;
-  $('nAvail').textContent=works.filter(w=>w.st==='av').length;
   $('nFav').textContent=fav.size;
   $('grp').hidden=!(filter==='fav'&&fav.size>=3);
   $('grp2').hidden=fav.size<3;
