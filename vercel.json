@@ -15,6 +15,10 @@
   ],
   "rewrites": [
     {
+      "source": "/mario-sergio-alvarez",
+      "destination": "/msa/index.html"
+    },
+    {
       "source": "/stock",
       "destination": "/stock.html"
     },
@@ -69,6 +73,19 @@
     },
     {
       "source": "/stock(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    },
+    {
+      "source": "/(mario-sergio-alvarez|msa/index.html|msa/status.json)",
       "headers": [
         {
           "key": "X-Robots-Tag",

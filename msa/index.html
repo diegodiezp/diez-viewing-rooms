@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mario Sergio Alvarez, All the Photographs of Flamboyant Trees I Find on the Internet</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Mario Sergio Alvarez, All the Photographs of Flamboyant Trees I Find on the Internet. Private presentation by diez gallery.">
+<meta property="og:title" content="Mario Sergio Alvarez, All the Photographs of Flamboyant Trees I Find on the Internet">
+<meta property="og:description" content="Private presentation by diez gallery, Amsterdam.">
+<meta property="og:image" content="https://rooms.diez.gallery/msa/img/i01.jpg">
+<meta property="og:url" content="https://rooms.diez.gallery/mario-sergio-alvarez">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/files/favicon.ico">
+<link rel="preload" href="/files/Replica_Regular.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+/* VOICE occasion, hushed: a private sale of one artist's series
+   IDEA the gallery wall during a salon hang, red dots appearing as works go
+   PICTURE the paintings themselves as one dense wall, numbered like a checklist
+   COLOUR gallery white, ink, the paintings' own flamboyant red for dots and actions
+   TYPE Replica throughout, weights for contrast
+   LAYOUT modest title band, then the wall grid full width; phone: 3 columns, sticky bar */
+@font-face{font-family:Replica;src:url(/files/Replica_Regular.woff2) format("woff2");font-weight:400 500;font-display:swap}
+@font-face{font-family:Replica;src:url(/files/Replica_Bold.woff2) format("woff2");font-weight:600 700;font-display:swap}
+@font-face{font-family:Replica;src:url(/files/Replica_Italic.woff2) format("woff2");font-style:italic;font-display:swap}
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#141010);--ink:light-dark(#141010,#f1ebe7);--mute:light-dark(#6f6764,#a49a95);--line:light-dark(#e6e1de,#2d2524);--soft:light-dark(#f5f2f0,#1d1716);--red:light-dark(#c4241a,#ef4a3c);--wall:light-dark(#eeecea,#221b1a)}
+:root[data-theme=light]{color-scheme:light}
+:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html{scroll-padding-top:80px}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Replica,Helvetica,Arial,sans-serif;overflow-x:clip;-webkit-font-smoothing:antialiased}
+img{max-width:100%;display:block}
+button,input,textarea{font:inherit;color:inherit}
+.band{padding-inline:max(4vw,16px)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:16px;padding-block:18px;border-bottom:1px solid var(--line)}
+.brand{font-weight:600;letter-spacing:-.01em;text-decoration:none;color:inherit}
+.priv{color:var(--mute);font-size:14px}
+.tnav{display:flex;gap:20px;font-size:15px}
+.tnav a{color:var(--mute);text-decoration:none}
+.tnav a:hover{color:var(--ink)}
+.hero{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:24px 48px;align-items:end;padding-block:clamp(28px,4vw,56px) 24px}
+h1{font-size:clamp(36px,5.2vw,64px);line-height:1.02;letter-spacing:-.03em;font-weight:500;margin:0;text-wrap:balance}
+h1 span{display:block;color:var(--mute);font-size:.56em;line-height:1.1;letter-spacing:-.02em;margin-top:.35em;max-width:22ch}
+.facts{display:grid;grid-template-columns:repeat(3,auto);justify-content:start;gap:4px 32px;font-size:15px}
+.facts b{display:block;font-size:clamp(24px,2.6vw,32px);font-weight:500;letter-spacing:-.02em;line-height:1.1;white-space:nowrap}
+.facts small{color:var(--mute);font-size:14px}
+.bar{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding-block:10px;border-block:1px solid var(--line)}
+.seg{display:flex;gap:4px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:0 14px;min-height:40px;cursor:pointer;font-size:15px;white-space:nowrap}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip:focus-visible,.btn:focus-visible,.cell:focus-visible,.icon:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.wall{display:grid;grid-template-columns:repeat(var(--cols,8),minmax(0,1fr));gap:clamp(14px,2vw,28px) clamp(10px,1.6vw,22px);padding-block:28px 56px}
+.cell{all:unset;cursor:pointer;display:flex;flex-direction:column;gap:7px}
+.frame{position:relative;aspect-ratio:320/489;background:#ece9e8;overflow:hidden}
+.wallmode .frame{aspect-ratio:900/1349;background:var(--wall)}
+.frame img{width:100%;height:100%;object-fit:cover;transition:transform .5s ease}
+.cell:hover .frame img{transform:scale(1.04)}
+.cap{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--mute);gap:6px;font-variant-numeric:tabular-nums}
+.cap .n{color:var(--ink);font-weight:500}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--red);flex:none}
+.dot.hold{background:transparent;border:2px solid var(--red)}
+.fav{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;background:var(--bg);display:grid;place-items:center;font-size:13px;color:var(--red);box-shadow:0 1px 3px #0003}
+.gone .frame img{opacity:.55}
+.empty{grid-column:1/-1;padding:48px 0;color:var(--mute)}
+.text{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:24px 48px;padding-block:clamp(40px,6vw,88px);border-top:1px solid var(--line)}
+.text h2{font-size:clamp(28px,3.4vw,44px);line-height:1.05;letter-spacing:-.025em;font-weight:500;margin:0;text-wrap:balance;max-width:14ch}
+.text .body{max-width:62ch;font-size:18px;line-height:1.6}
+.text .body p{margin:0 0 1em}
+.text .last{font-size:22px;line-height:1.35;letter-spacing:-.01em}
+.text .sig{color:var(--mute);font-size:15px}
+.info{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px;padding-block:48px;border-top:1px solid var(--line)}
+.info h2{font-size:22px;font-weight:500;letter-spacing:-.02em;margin:0 0 10px}
+.info p,.info ol{margin:0;color:var(--mute);max-width:42ch}
+.info ol{padding-left:1.2em}
+.info li{margin-bottom:6px}
+.hband{display:block;width:100%;padding:0;border:0;background:var(--soft);cursor:zoom-in;position:relative}
+.hband img{width:100%;height:clamp(220px,34vw,470px);object-fit:cover;object-position:50% 64%}
+.hcap{display:flex;justify-content:space-between;gap:12px;font-size:13px;color:var(--mute);padding-block:10px 0}
+.hcap a{color:var(--ink)}
+.inst{padding-block:clamp(40px,6vw,88px) 24px;border-top:1px solid var(--line)}
+.ihead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px 24px;margin-bottom:24px}
+.ihead h2{font-size:clamp(28px,3.4vw,44px);line-height:1.05;letter-spacing:-.025em;font-weight:500;margin:0}
+.ihead p{margin:0;color:var(--mute);max-width:56ch}
+.igrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:clamp(8px,1.2vw,16px)}
+.ig{all:unset;cursor:zoom-in;display:block;background:var(--soft);overflow:hidden}
+.ig img{width:100%;height:100%;object-fit:cover;transition:transform .6s ease}
+.ig:hover img{transform:scale(1.02)}
+.ig:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.ig.f{grid-column:span 6;aspect-ratio:3/2}
+.ig.l{grid-column:span 3;aspect-ratio:3/2}
+.ig.p{grid-column:span 2;aspect-ratio:2/3}
+.ilb{position:fixed;inset:0;z-index:22;background:#151111;display:none}
+.ilb.on{display:block}
+.ilb img{position:absolute;inset:56px 16px 64px;width:calc(100% - 32px);height:calc(100% - 120px);object-fit:contain}
+.ilb .bar2{position:absolute;inset:0 0 auto 0;display:flex;justify-content:space-between;align-items:center;padding:6px 8px 6px 16px;color:#d9d0cc;font-size:14px}
+.ilb .icon{color:#fff}
+.ilb .icon:hover{background:#ffffff1a}
+.ilb .nv{position:absolute;inset:auto 0 8px 0;display:flex;justify-content:center;gap:8px}
+@media(max-width:700px){.ig.l{grid-column:span 6}.hcap{flex-direction:column;gap:2px}}
+.note{font-size:13px;color:var(--mute);padding-block:0 18px}
+.grp{margin:20px 0 -8px;font-size:15px;color:var(--mute)}
+.grp a{color:var(--ink)}
+.cmpg .grp{grid-column:1/-1}
+footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;padding-block:24px 40px;border-top:1px solid var(--line);font-size:14px;color:var(--mute)}
+footer a{color:inherit}
+/* detail */
+.ov{position:fixed;inset:0;z-index:20;background:var(--bg);display:none;grid-template-columns:minmax(0,1fr) 380px;height:100%}
+.ov.on{display:grid}
+.stage{position:relative;background:light-dark(#ece9e8,#1d1716);overflow:hidden;min-height:0}
+.stage img{position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:contain;cursor:zoom-in;transition:transform .25s ease}
+.stage.wallv{background:var(--wall)}
+.stage.wallv img{cursor:default}
+.stage.zoom img{transform:scale(2.6);cursor:zoom-out;transition:none}
+.side{display:flex;flex-direction:column;gap:18px;padding:24px 28px;overflow:auto;border-left:1px solid var(--line)}
+.srow{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.icon{all:unset;cursor:pointer;width:44px;height:44px;display:grid;place-items:center;border-radius:50%;font-size:20px}
+.icon:hover{background:var(--soft)}
+.dn{font-size:15px;color:var(--mute);font-variant-numeric:tabular-nums}
+.side h2{font-size:30px;line-height:1.05;letter-spacing:-.025em;font-weight:500;margin:0}
+.meta{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 16px;font-size:15px}
+.meta dt{color:var(--mute)}
+.meta dd{margin:0}
+.price{font-size:28px;font-weight:500;letter-spacing:-.02em;white-space:nowrap}
+.price small{display:block;font-size:13px;color:var(--mute);font-weight:400;letter-spacing:0}
+.status{display:flex;align-items:center;gap:8px;font-size:15px}
+.btn{all:unset;box-sizing:border-box;cursor:pointer;min-height:48px;padding:0 18px;display:flex;align-items:center;justify-content:center;border-radius:2px;font-weight:500;text-align:center}
+.btn.p{background:var(--red);color:#fff}
+.btn.p:hover{filter:brightness(.92)}
+.btn.s{border:1px solid var(--ink)}
+.btn.off{opacity:.4;pointer-events:none}
+.acts{display:grid;gap:8px}
+.views{display:flex;gap:4px}
+.hint{font-size:13px;color:var(--mute)}
+.navs{position:absolute;inset:auto 12px 12px auto;display:flex;gap:6px}
+.navs .icon{background:var(--bg);box-shadow:0 1px 4px #0002}
+/* dialogs */
+.dlg{position:fixed;inset:0;z-index:30;background:#0007;display:none;place-items:center;padding:16px}
+.dlg.on{display:grid}
+.box{background:var(--bg);width:min(520px,100%);max-height:100%;overflow:auto;padding:28px;display:grid;gap:14px}
+.box h3{margin:0;font-size:24px;font-weight:500;letter-spacing:-.02em}
+.box label{display:grid;gap:4px;font-size:14px;color:var(--mute)}
+.box input,.box textarea{font-size:16px;border:1px solid var(--line);background:var(--bg);padding:12px;border-radius:2px;color:var(--ink)}
+.box input:focus,.box textarea:focus{outline:2px solid var(--red);border-color:transparent}
+.mini{display:flex;gap:12px;align-items:center}
+.mini img{width:56px}
+.cmp{position:fixed;inset:0;z-index:25;background:var(--bg);display:none;flex-direction:column}
+.cmp.on{display:flex}
+.cmpg{flex:1;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:20px;padding:20px max(4vw,16px) 28px;overflow-x:auto;min-height:0}
+.cmpg figure{margin:0;display:flex;flex-direction:column;gap:8px;min-height:0;min-width:160px}
+.cmpg img{flex:1;min-height:0;object-fit:contain;object-position:top;width:100%}
+.cmpg figcaption{display:flex;justify-content:space-between;font-size:14px;gap:8px}
+.cmpg button{all:unset;cursor:pointer;color:var(--mute);font-size:13px;text-decoration:underline}
+@media(max-width:1000px){.hero{grid-template-columns:minmax(0,1fr)}.text{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:700px){.info{grid-template-columns:minmax(0,1fr)}.text .body{font-size:17px}}
+@media(max-width:800px){.ov{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
+.stage{min-height:0}
+.side{border-left:0;border-top:1px solid var(--line);padding:12px 16px 14px;gap:10px;overflow:visible}
+.side h2{font-size:20px}
+.side .srow{position:absolute;top:8px;right:8px;left:auto;z-index:2}
+.side .srow .dn{display:none}
+.side .srow .icon{background:var(--bg);box-shadow:0 1px 4px #0003}
+.series,.hint,.meta,.views{display:none}
+.mrow{display:flex!important}
+.price{font-size:22px}
+.price small{display:inline;margin-left:8px}
+.acts{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.acts .btn{min-height:44px;padding:0 10px;font-size:15px}
+.mmore{display:block!important}
+.navs{bottom:8px;right:8px}
+.navs .icon{width:40px;height:40px}}
+.mrow{display:none;justify-content:space-between;align-items:baseline;gap:12px;font-size:14px;color:var(--mute)}
+.mmore{display:none;font-size:13px;color:var(--mute)}
+@media(max-width:600px){.facts{grid-template-columns:repeat(2,auto)}.priv{display:none}.chip{padding:0 11px;font-size:14px}.wall{gap:14px 8px}.cap{font-size:12px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="band top">
+  <a class="brand" href="#">diez gallery</a>
+  <nav class="tnav" aria-label="Sections"><a href="#wall">Works</a><a href="#installation">Installation</a><a href="#text">Text</a></nav>
+</header>
+
+<section class="band hero">
+  <h1>Mario Sergio Alvarez<span>All the Photographs of Flamboyant Trees I Find on the Internet</span></h1>
+  <div class="facts">
+    <div><b id="nAvail">70</b><small id="nOf">of 70 available</small></div>
+    <div><b>€5,000</b><small>each, excl. VAT</small></div>
+    <div><b>48 h</b><small>reservation hold</small></div>
+  </div>
+</section>
+
+<section class="band" aria-label="Installation view">
+  <button class="hband" data-ii="0" aria-label="Open installation views"><img src="/msa/img/i01.jpg" alt="Installation view: the series hung as a continuous frieze around the room"></button>
+  <div class="hcap"><span>Installation view, Rijksakademie, Amsterdam, 2026. Private presentation, not for circulation.</span><a href="#installation">More installation views</a></div>
+</section>
+
+<nav class="band bar" aria-label="Filter and view">
+  <div class="seg" role="group" aria-label="Filter">
+    <button class="chip" id="fAll" aria-pressed="true">All 70</button>
+    <button class="chip" id="fAv" aria-pressed="false">Available</button>
+    <button class="chip" id="fFav" aria-pressed="false">Shortlist <span id="nFav">0</span></button>
+  </div>
+  <div class="seg" role="group" aria-label="View">
+    <button class="chip" id="vWork" aria-pressed="true">Paintings</button>
+    <button class="chip" id="vWall" aria-pressed="false">On the wall</button>
+    <button class="chip" id="vCmp">Compare</button>
+  </div>
+</nav>
+
+<main class="band">
+  <p class="grp" id="grp" hidden>Interested in a group? Ask about acquiring them together: <a href="mailto:diego@diez.gallery?subject=Group%20of%20works%2C%20Mario%20Sergio%20Alvarez">diego@diez.gallery</a></p>
+  <div class="wall" id="wall" style="scroll-margin-top:80px"></div>
+  <p class="note">Red dot: sold. Red ring: on hold.</p>
+</main>
+
+<section class="band inst" id="installation">
+  <div class="ihead">
+    <h2>Installation</h2>
+    <p>Installed, the paintings form one work: part of the series hangs edge to edge as a continuous frieze around the room, the rest is stacked into a block on the floor. Rijksakademie, Amsterdam, 2026.</p>
+  </div>
+  <div class="igrid" id="igrid"></div>
+</section>
+
+<section class="band text" id="text">
+  <h2>All the Photographs of Flamboyant Trees I Find on the Internet</h2>
+  <div class="body">
+    <p>This series begins with an impossible action: to paint every photograph of a flamboyant tree that I find on the Internet. The word “every” produces a potentially infinite archive, and I am faced with an endless task.</p>
+    <p>In Cuba, my home country, repetition has been used to fix political images, symbols, and ideas until they become familiar and unquestionable. My procedure starts from this same logic, but reverses it: to repeat in order to erode. By returning again and again to the same motif, what initially appears as an ornamental image begins to lose its stability.</p>
+    <p>This gesture also has a personal origin. I grew up working in our family workshop, producing paintings intended for the tourist market. My father belongs to a generation that learned to accept or resign itself to the legacy of Cuba’s communist system; my generation confronts it through dissatisfaction. Painting over the flamboyant tree thus becomes a way of confronting an inherited image, something that is also part of my own inheritance.</p>
+    <p>I do not seek to completely erase the image, but to make it recede: to gradually take away its luminosity and allow other layers to emerge. The impossibility of painting every image is what keeps the work open. Each new photograph prolongs the task, and each new painting calls the previous one into question.</p>
+    <p class="last">The flamboyant tree remains, but its image can no longer remain intact.</p>
+    <p class="sig">Mario Sergio Alvarez</p>
+  </div>
+</section>
+
+<section class="band info">
+  <div>
+    <h2>How to acquire</h2>
+    <ol>
+      <li>Write to us to reserve a work. Once confirmed, it is held for you for 48 hours.</li>
+      <li>We confirm by email and send the invoice with bank details.</li>
+      <li>Once paid, we arrange packing and shipping within the EU, or collection in Amsterdam.</li>
+    </ol>
+    <p style="margin-top:14px">Acquiring several works from the series? Write to us.</p>
+  </div>
+  <div>
+    <h2>Questions</h2>
+    <p>Diego Diez<br>diego@diez.gallery<br>Gibraltarstraat 74-B, Amsterdam</p>
+  </div>
+</section>
+
+<footer class="band">
+  <span>diez gallery, Amsterdam</span>
+  <a href="https://diez.gallery">diez.gallery</a>
+</footer>
+
+<div class="ov" id="ov" role="dialog" aria-modal="true" aria-label="Painting detail">
+  <div class="stage" id="stage">
+    <img id="big" alt="">
+    <div class="navs">
+      <button class="icon" id="prev" aria-label="Previous painting">←</button>
+      <button class="icon" id="next" aria-label="Next painting">→</button>
+    </div>
+  </div>
+  <aside class="side">
+    <div class="srow">
+      <span class="dn" id="dn"></span>
+      <button class="icon" id="close" aria-label="Close">✕</button>
+    </div>
+    <div class="mrow"><span id="mn"></span><span>140 × 85 cm</span></div>
+    <h2 id="dt"></h2>
+    <p class="hint series" style="margin:-10px 0 0">From the series All the Photographs of Flamboyant Trees I Find on the Internet</p>
+    <dl class="meta">
+      <dt>Medium</dt><dd>Oil on canvas</dd>
+      <dt>Size</dt><dd>140 × 85 cm</dd>
+      <dt>Ref.</dt><dd id="dref"></dd>
+    </dl>
+    <div class="views">
+      <button class="chip" id="dWork" aria-pressed="true">Painting</button>
+      <button class="chip" id="dWall" aria-pressed="false">On the wall</button>
+    </div>
+    <div class="price">€5,000<small>Excl. VAT. Shipping quoted separately.</small></div>
+    <div class="status" id="dst"></div>
+    <div class="acts">
+      <a class="btn p" id="res" href="mailto:diego@diez.gallery">Reserve by email</a>
+      <button class="btn s" id="fav">Add to shortlist</button>
+    </div>
+    <p class="mmore">Oil on canvas. Tap the painting to zoom, swipe to move through the series.</p>
+    <p class="hint">Reservations: diego@diez.gallery</p>
+    <p class="hint">Click the painting to see the surface up close. Arrow keys move through the series.</p>
+  </aside>
+</div>
+
+<div class="cmp" id="cmp" role="dialog" aria-modal="true" aria-label="Compare shortlist">
+  <div class="band srow" style="padding-block:12px;border-bottom:1px solid var(--line)">
+    <strong>Compare your shortlist</strong>
+    <button class="icon" id="cmpX" aria-label="Close compare">✕</button>
+  </div>
+  <p class="band grp" id="grp2" hidden style="margin:12px 0 0">Interested in a group? Ask about acquiring them together: <a href="mailto:diego@diez.gallery?subject=Group%20of%20works%2C%20Mario%20Sergio%20Alvarez">diego@diez.gallery</a></p>
+  <div class="cmpg" id="cmpg"></div>
+</div>
+
+<div class="ilb" id="ilb" role="dialog" aria-modal="true" aria-label="Installation views">
+  <div class="bar2"><span id="icap"></span><button class="icon" id="ix" aria-label="Close">✕</button></div>
+  <img id="iimg" alt="">
+  <div class="nv"><button class="icon" id="ip" aria-label="Previous view">←</button><button class="icon" id="in" aria-label="Next view">→</button></div>
+</div>
+
+
+<script src="/msa/app.js" defer></script>
+</body>
+</html>

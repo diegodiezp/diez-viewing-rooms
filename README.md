@@ -123,3 +123,12 @@ Extra environment variables:
   the workflow file. PDFs live under `pdfs/` in the `diez-gallery` bucket.
   The repository is public, so Actions logs are public: the script only
   prints slugs, sizes and timings.
+
+## Series room: Mario Sergio Alvarez
+
+Static page at `/mario-sergio-alvarez` (files in `msa/`, rewrite in `vercel.json`).
+
+- `msa/index.html` + `msa/app.js`: the page (no build step, CSP-safe).
+- `msa/img/`: `t`/`w`/`r` = thumbnail, painting with wall margin, wall view; `i`/`is` = installation views.
+- `msa/status.json`: red dots. Edit on GitHub, e.g. `{"07": "sold", "12": "hold"}` (numbers as shown on the page, 01 to 70).
+- Reservations open a pre-filled email to diego@diez.gallery.
