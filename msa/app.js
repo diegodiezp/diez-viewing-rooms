@@ -28,7 +28,7 @@ function show(i){
   $('dn').textContent=`${w.id} / ${N}`;$('mn').textContent=`${w.id} / ${N}`;$('dt').textContent=title(w);$('dref').textContent='MSER-26-'+w.id;
   $('dst').innerHTML=(w.st==='sold'?'<span class="dot"></span>':w.st==='hold'?'<span class="dot hold"></span>':'<span class="dot" style="background:#2e8b57"></span>')+label[w.st];
   const r=$('res');r.classList.toggle('off',w.st!=='av');r.textContent=w.st==='av'?'Reserve by email':w.st==='hold'?'On hold':'Sold';
-  r.href=w.st==='av'?'mailto:diego@diez.gallery?subject='+encodeURIComponent(`Reservation: Mario Sergio Alvarez, ${title(w)} (MSER-26-${w.id})`)+'&body='+encodeURIComponent(`Hello Diego,\n\nI would like to reserve Mario Sergio Alvarez, ${title(w)} (MSER-26-${w.id}), from the series All the Photographs of Flamboyant Trees I Find on the Internet. Oil on canvas, 140 x 85 cm. EUR 5,000 excl. VAT.\n\nName:\nCity / country:\n\nBest regards,\n`):'#';
+  r.href=w.st==='av'?'mailto:diego@diez.gallery?subject='+encodeURIComponent(`Reservation: Mario Sergio Alvarez, ${title(w)} (MSER-26-${w.id})`)+'&body='+encodeURIComponent(`Hello Diego,\n\nI would like to reserve Mario Sergio Alvarez, ${title(w)} (MSER-26-${w.id}), from the series All the Photographs of Flamboyant Trees I Find on the Internet, 2026. Oil on canvas, 140 x 85 cm. EUR 5,000 excl. VAT.\n\nName:\nCity / country:\n\nBest regards,\n`):'#';
   $('fav').textContent=fav.has(w.id)?'Remove from shortlist':'Add to shortlist';
   press(['dWork','dWall'],dview==='wall'?'dWall':'dWork');
   new Image().src=`/msa/img/w${works[(cur+1)%N].img}.jpg`;
