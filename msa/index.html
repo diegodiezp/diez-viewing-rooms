@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Mario Sergio Alvarez, All the Photographs of Flamboyant Trees I Find on the Internet</title>
 <meta name="robots" content="noindex, nofollow">
-<meta name="description" content="Mario Sergio Alvarez, All the Photographs of Flamboyant Trees I Find on the Internet. Private presentation by diez gallery.">
+<meta name="description" content="Mario Sergio Alvarez, All the Photographs of Flamboyant Trees I Find on the Internet. Private presentation by diez.">
 <meta property="og:title" content="Mario Sergio Alvarez, All the Photographs of Flamboyant Trees I Find on the Internet">
-<meta property="og:description" content="Private presentation by diez gallery, Amsterdam.">
+<meta property="og:description" content="Private presentation by diez, Amsterdam.">
 <meta property="og:image" content="https://rooms.diez.gallery/msa/img/i01.jpg">
 <meta property="og:url" content="https://rooms.diez.gallery/mario-sergio-alvarez">
 <meta property="og:type" content="website">
@@ -34,7 +34,10 @@ img{max-width:100%;display:block}
 button,input,textarea{font:inherit;color:inherit}
 .band{padding-inline:max(4vw,16px)}
 .top{display:flex;justify-content:space-between;align-items:center;gap:16px;padding-block:18px;border-bottom:1px solid var(--line)}
-.brand{font-weight:600;letter-spacing:-.01em;text-decoration:none;color:inherit}
+.brand{display:block;line-height:0}
+.brand img{height:30px;width:auto}
+@media(prefers-color-scheme:dark){.brand img{filter:invert(1)}}
+@media(max-width:600px){.brand img{height:24px}}
 .priv{color:var(--mute);font-size:14px}
 .tnav{display:flex;gap:20px;font-size:15px}
 .tnav a{color:var(--mute);text-decoration:none}
@@ -177,7 +180,7 @@ footer a{color:inherit}
 </head>
 <body>
 <header class="band top">
-  <a class="brand" href="#">diez gallery</a>
+  <a class="brand" href="https://diez.gallery" aria-label="diez"><img src="/files/logo.png" alt="diez" width="200" height="91"></a>
   <nav class="tnav" aria-label="Sections"><a href="#wall">Works</a><a href="#installation">Installation</a><a href="#text">Text</a></nav>
 </header>
 
@@ -251,7 +254,7 @@ footer a{color:inherit}
 </section>
 
 <footer class="band">
-  <span>diez gallery, Amsterdam</span>
+  <span>diez, Amsterdam</span>
   <a href="https://diez.gallery">diez.gallery</a>
 </footer>
 
